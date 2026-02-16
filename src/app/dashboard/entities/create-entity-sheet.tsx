@@ -32,7 +32,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast"; // Assuming this exists or I'll need to create it/install it. 
+// import { useToast } from "@/hooks/use-toast"; // Assuming this exists or I'll need to create it/install it. 
 // Shadcn usually installs a toast hook. If not, I'll skip toast for now or use alert.
 
 export function CreateEntitySheet() {
@@ -52,8 +52,11 @@ export function CreateEntitySheet() {
     });
 
     function onSubmit(data: CreateEntityInput) {
+        console.log("Form submitted:", data);
         startTransition(async () => {
+            console.log("Calling server action...");
             const result = await createEntity(data);
+            console.log("Server action result:", result);
 
             if (result.error) {
                 // toast({ title: "Error", description: result.error, variant: "destructive" });
@@ -64,6 +67,10 @@ export function CreateEntitySheet() {
                 form.reset();
             }
         });
+    }
+
+    function onError(errors: any) {
+        console.error("Form validation errors:", errors);
     }
 
     return (
@@ -80,7 +87,7 @@ export function CreateEntitySheet() {
                 </SheetHeader>
                 <div className="py-4">
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-4">
                             <FormField
                                 control={form.control}
                                 name="name"

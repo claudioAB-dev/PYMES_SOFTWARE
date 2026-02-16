@@ -35,16 +35,14 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
         {
             label: "Ventas",
             icon: ShoppingCart,
-            href: "/dashboard/sales",
+            href: "/dashboard/orders",
             color: "text-pink-700",
-            disabled: true,
         },
         {
             label: "Productos",
             icon: Package,
             href: "/dashboard/products",
             color: "text-orange-700",
-            disabled: true,
         },
         {
             label: "Configuración",
@@ -63,24 +61,28 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
                     </h1>
                 </Link>
                 <div className="space-y-1">
-                    {routes.map((route) => (
-                        <Button
-                            key={route.href}
-                            asChild
-                            variant={pathname === route.href ? "secondary" : "ghost"}
-                            className={cn(
-                                "w-full justify-start cursor-pointer",
-                                pathname === route.href ? "bg-white/10" : "text-zinc-400 hover:text-white hover:bg-white/10",
-                                route.disabled && "opacity-50 cursor-not-allowed"
-                            )}
-                            disabled={route.disabled}
-                        >
-                            <Link href={route.disabled ? "#" : route.href}>
-                                <route.icon className={cn("h-5 w-5 mr-3", route.color)} />
-                                {route.label}
-                            </Link>
-                        </Button>
-                    ))}
+                    {routes.map((route) => {
+                        const isActive = route.href === "/dashboard"
+                            ? pathname === "/dashboard"
+                            : pathname.startsWith(route.href);
+
+                        return (
+                            <Button
+                                key={route.href}
+                                asChild
+                                variant={isActive ? "secondary" : "ghost"}
+                                className={cn(
+                                    "w-full justify-start cursor-pointer",
+                                    isActive ? "bg-white/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                                )}
+                            >
+                                <Link href={route.href}>
+                                    <route.icon className={cn("h-5 w-5 mr-3", route.color)} />
+                                    {route.label}
+                                </Link>
+                            </Button>
+                        );
+                    })}
                 </div>
             </div>
         </div>
