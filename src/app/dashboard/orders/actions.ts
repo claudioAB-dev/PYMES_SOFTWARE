@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/db";
-import { orders, orderItems, memberships, products, entities } from "@/db/schema";
+import { orders, orderItems, memberships, products, entities, payments } from "@/db/schema";
 import { eq, desc, and, inArray, sql } from "drizzle-orm";
 import { createOrderSchema, CreateOrderInput } from "@/lib/validators/orders";
 import { revalidatePath } from "next/cache";
@@ -201,5 +201,207 @@ export async function deleteOrder(orderId: string) {
     } catch (error) {
         console.error("Error deleting order:", error);
         return { error: "Error al eliminar la orden" };
+    }
+}
+
+export async function getOrderDetails(orderId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return null;
+
+    // Validate UUID format to prevent DB errors
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(orderId)) {
+        return null;
+    }
+
+    const userMemberships = await db.query.memberships.findMany({
+        where: eq(memberships.userId, user.id),
+    });
+
+    if (userMemberships.length === 0) return null;
+    const organizationId = userMemberships[0].organizationId;
+
+    const order = await db.query.orders.findFirst({
+        where: and(
+            eq(orders.id, orderId),
+            eq(orders.organizationId, organizationId)
+        ),
+        with: {
+            entity: true,
+            items: {
+                with: {
+                    product: true,
+                }
+            },
+            payments: {
+                orderBy: [desc(payments.date)],
+            },
+        },
+    });
+
+    return order;
+}
+
+export async function registerPayment(orderId: string, amount: number, method: 'CASH' | 'TRANSFER' | 'CARD' | 'OTHER', reference?: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: "No autorizado" };
+    }
+
+    const userMemberships = await db.query.memberships.findMany({
+        where: eq(memberships.userId, user.id),
+    });
+
+    if (userMemberships.length === 0) return { error: "No organization found" };
+    const organizationId = userMemberships[0].organizationId;
+
+    try {
+        await db.transaction(async (tx) => {
+            // 1. Get Order & Existing Payments
+            const order = await tx.query.orders.findFirst({
+                where: and(
+                    eq(orders.id, orderId),
+                    eq(orders.organizationId, organizationId)
+                ),
+                with: {
+                    payments: true,
+                }
+            });
+
+            if (!order) throw new Error("Orden no encontrada");
+
+            // 2. Validate Amount
+            const totalPaid = order.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const pendingBalance = Number(order.totalAmount) - totalPaid;
+
+            if (amount > pendingBalance) {
+                // Allow a small margin of error for floating point issues if specific implementation needed, but generally stick to strict for money.
+                // However, for user experience, let's just reject.
+                throw new Error(`El monto excede el saldo pendiente. Saldo: ${pendingBalance.toFixed(2)}`);
+            }
+
+            if (amount <= 0) {
+                throw new Error("El monto debe ser mayor a 0");
+            }
+
+            // 3. Register Payment
+            await tx.insert(payments).values({
+                organizationId,
+                orderId,
+                amount: amount.toString(),
+                method,
+                reference,
+            });
+
+            // 4. Update Order Status
+            const newTotalPaid = totalPaid + amount;
+            const orderTotal = Number(order.totalAmount);
+
+            let newStatus: 'UNPAID' | 'PARTIAL' | 'PAID' = 'PARTIAL';
+            if (newTotalPaid >= orderTotal - 0.01) { // Tolerance for rounding
+                newStatus = 'PAID';
+            } else if (newTotalPaid > 0) {
+                newStatus = 'PARTIAL';
+            } else {
+                newStatus = 'UNPAID';
+            }
+
+            await tx.update(orders)
+                .set({ paymentStatus: newStatus })
+                .where(eq(orders.id, orderId));
+        });
+
+        revalidatePath(`/dashboard/orders/${orderId}`);
+        revalidatePath("/dashboard/orders");
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("Error registering payment:", error);
+        return { error: error.message || "Error al registrar pago" };
+    }
+}
+
+export async function updateOrderStatus(orderId: string, newStatus: 'CONFIRMED' | 'CANCELLED') {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: "No autorizado" };
+    }
+
+    const userMemberships = await db.query.memberships.findMany({
+        where: eq(memberships.userId, user.id),
+    });
+
+    if (userMemberships.length === 0) return { error: "No organization found" };
+    const organizationId = userMemberships[0].organizationId;
+
+    try {
+        await db.transaction(async (tx) => {
+            // 1. Get current order status
+            const order = await tx.query.orders.findFirst({
+                where: and(
+                    eq(orders.id, orderId),
+                    eq(orders.organizationId, organizationId)
+                ),
+                with: {
+                    items: {
+                        with: {
+                            product: true
+                        }
+                    }
+                }
+            });
+
+            if (!order) throw new Error("Orden no encontrada");
+
+            // 2. Handle Transitions
+            if (newStatus === 'CANCELLED' && order.status !== 'CANCELLED') {
+                // Restore Stock
+                for (const item of order.items) {
+                    if (item.product.type === 'PRODUCT') {
+                        await tx.update(products)
+                            .set({ stock: sql`${products.stock} + ${Number(item.quantity)}` })
+                            .where(eq(products.id, item.productId));
+                    }
+                }
+            }
+
+            // Note: If transitioning FROM Cancelled TO Confirmed/Draft, we would need to DEDUCT stock again.
+            // For now, let's assume one-way flow or re-deduct if needed.
+            // If user uncancels, we should check stock.
+            if (order.status === 'CANCELLED' && newStatus === 'CONFIRMED') {
+                // Check and Deduct Stock again
+                for (const item of order.items) {
+                    if (item.product.type === 'PRODUCT') {
+                        const currentStock = Number(item.product.stock);
+                        if (currentStock < Number(item.quantity)) {
+                            throw new Error(`Stock insuficiente para reactivar orden: ${item.product.name}`);
+                        }
+
+                        await tx.update(products)
+                            .set({ stock: sql`${products.stock} - ${Number(item.quantity)}` })
+                            .where(eq(products.id, item.productId));
+                    }
+                }
+            }
+
+            // 3. Update Status
+            await tx.update(orders)
+                .set({ status: newStatus })
+                .where(eq(orders.id, orderId));
+        });
+
+        revalidatePath(`/dashboard/orders/${orderId}`);
+        revalidatePath("/dashboard/orders");
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("Error updating order status:", error);
+        return { error: error.message || "Error al actualizar estado" };
     }
 }

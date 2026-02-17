@@ -6,6 +6,8 @@ export const roleEnum = pgEnum('role', ['OWNER', 'ADMIN', 'MEMBER', 'ACCOUNTANT'
 export const entityTypeEnum = pgEnum('entity_type', ['CLIENT', 'SUPPLIER', 'BOTH']);
 export const orderTypeEnum = pgEnum('order_type', ['PURCHASE', 'SALE']);
 export const orderStatusEnum = pgEnum('order_status', ['DRAFT', 'CONFIRMED', 'CANCELLED']);
+export const paymentStatusEnum = pgEnum('payment_status', ['UNPAID', 'PARTIAL', 'PAID']);
+export const paymentMethodEnum = pgEnum('payment_method', ['CASH', 'TRANSFER', 'CARD', 'OTHER']);
 export const productTypeEnum = pgEnum('product_type', ['PRODUCT', 'SERVICE']);
 
 // --- TABLES ---
@@ -25,6 +27,10 @@ export const organizations = pgTable("organizations", {
     name: text("name").notNull(),
     slug: text("slug").unique().notNull(),
     taxId: text("tax_id"),
+    logoUrl: text("logo_url"),
+    address: text("address"),
+    phone: text("phone"),
+    website: text("website"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -75,6 +81,7 @@ export const orders = pgTable("orders", {
     entityId: uuid("entity_id").references(() => entities.id).notNull(),
     type: orderTypeEnum("type").notNull(),
     status: orderStatusEnum("status").default('DRAFT').notNull(),
+    paymentStatus: paymentStatusEnum("payment_status").default('UNPAID').notNull(),
     totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default('0'),
     isInvoiced: boolean("is_invoiced").default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -90,6 +97,18 @@ export const orderItems = pgTable("order_items", {
     unitPrice: decimal("unit_price", { precision: 12, scale: 2 }).notNull(),
 });
 
+// 8. Payments
+export const payments = pgTable("payments", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orderId: uuid("order_id").references(() => orders.id).notNull(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    date: timestamp("date").defaultNow().notNull(),
+    method: paymentMethodEnum("method").notNull(),
+    reference: text("reference"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // --- RELATIONS ---
 export const usersRelations = relations(users, ({ many }) => ({
     memberships: many(memberships),
@@ -100,6 +119,7 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
     entities: many(entities),
     products: many(products),
     orders: many(orders),
+    payments: many(payments),
 }));
 
 export const membershipsRelations = relations(memberships, ({ one }) => ({
@@ -111,9 +131,15 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     organization: one(organizations, { fields: [orders.organizationId], references: [organizations.id] }),
     entity: one(entities, { fields: [orders.entityId], references: [entities.id] }),
     items: many(orderItems),
+    payments: many(payments),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
     order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
     product: one(products, { fields: [orderItems.productId], references: [products.id] }),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+    order: one(orders, { fields: [payments.orderId], references: [orders.id] }),
+    organization: one(organizations, { fields: [payments.organizationId], references: [organizations.id] }),
 }));

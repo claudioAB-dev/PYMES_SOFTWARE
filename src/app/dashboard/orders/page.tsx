@@ -70,7 +70,11 @@ export default async function OrdersPage() {
                         ) : (
                             ordersData.map((order) => (
                                 <TableRow key={order.id}>
-                                    <TableCell className="font-mono">{order.id.slice(0, 8)}</TableCell>
+                                    <TableCell className="font-mono">
+                                        <Link href={`/dashboard/orders/${order.id}`} className="hover:underline text-blue-600">
+                                            {order.id.slice(0, 8)}
+                                        </Link>
+                                    </TableCell>
                                     <TableCell>{order.entity.commercialName}</TableCell>
                                     <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
                                     <TableCell>
