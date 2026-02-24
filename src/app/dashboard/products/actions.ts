@@ -27,7 +27,11 @@ async function getOrganizationId() {
         throw new Error("No organization found");
     }
 
-    return { organizationId: userMemberships[0].organizationId, user };
+    return {
+        organizationId: userMemberships[0].organizationId,
+        role: userMemberships[0].role,
+        user
+    };
 }
 
 export async function getProducts() {
@@ -81,7 +85,12 @@ export async function createProduct(input: ProductInput) {
 
 export async function archiveProduct(productId: string) {
     try {
-        const { organizationId } = await getOrganizationId();
+        const { organizationId, role } = await getOrganizationId();
+
+        // Only ADMIN and OWNER can archive/delete products
+        if (role !== 'OWNER' && role !== 'ADMIN') {
+            return { error: "Solo administradores pueden eliminar productos" };
+        }
 
         // Soft delete: set archived = true
         await db

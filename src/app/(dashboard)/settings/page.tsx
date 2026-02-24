@@ -23,15 +23,20 @@ async function getOrganization() {
 
     if (userMemberships.length === 0) return null
 
-    return userMemberships[0].organization
+    return {
+        organization: userMemberships[0].organization,
+        role: userMemberships[0].role
+    }
 }
 
 export default async function SettingsPage() {
-    const organization = await getOrganization()
+    const data = await getOrganization()
 
-    if (!organization) {
+    if (!data) {
         redirect('/login')
     }
+
+    const { organization, role } = data
 
     return (
         <div className="flex-1 space-y-4 pt-6">
@@ -48,7 +53,7 @@ export default async function SettingsPage() {
                     <GeneralTab organization={organization} />
                 </TabsContent>
                 <TabsContent value="members" className="space-y-4">
-                    <MembersTab />
+                    <MembersTab organizationId={organization.id} currentUserRole={role} />
                 </TabsContent>
             </Tabs>
         </div>

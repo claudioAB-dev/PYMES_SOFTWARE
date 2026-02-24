@@ -9,6 +9,7 @@ export const orderStatusEnum = pgEnum('order_status', ['DRAFT', 'CONFIRMED', 'CA
 export const paymentStatusEnum = pgEnum('payment_status', ['UNPAID', 'PARTIAL', 'PAID']);
 export const paymentMethodEnum = pgEnum('payment_method', ['CASH', 'TRANSFER', 'CARD', 'OTHER']);
 export const productTypeEnum = pgEnum('product_type', ['PRODUCT', 'SERVICE']);
+export const invitationStatusEnum = pgEnum('invitation_status', ['PENDING', 'ACCEPTED', 'EXPIRED', 'REVOKED']);
 
 // --- TABLES ---
 
@@ -109,6 +110,19 @@ export const payments = pgTable("payments", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// 9. Invitations (Team Management)
+export const invitations = pgTable("invitations", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    email: text("email").notNull(),
+    role: roleEnum("role").default('MEMBER').notNull(),
+    token: text("token").unique().notNull(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    invitedBy: uuid("invited_by").references(() => users.id).notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    status: invitationStatusEnum("status").default('PENDING').notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // --- RELATIONS ---
 export const usersRelations = relations(users, ({ many }) => ({
     memberships: many(memberships),
@@ -120,6 +134,7 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
     products: many(products),
     orders: many(orders),
     payments: many(payments),
+    invitations: many(invitations),
 }));
 
 export const membershipsRelations = relations(memberships, ({ one }) => ({
@@ -142,4 +157,9 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 export const paymentsRelations = relations(payments, ({ one }) => ({
     order: one(orders, { fields: [payments.orderId], references: [orders.id] }),
     organization: one(organizations, { fields: [payments.organizationId], references: [organizations.id] }),
+}));
+
+export const invitationsRelations = relations(invitations, ({ one }) => ({
+    organization: one(organizations, { fields: [invitations.organizationId], references: [organizations.id] }),
+    inviter: one(users, { fields: [invitations.invitedBy], references: [users.id] }),
 }));
