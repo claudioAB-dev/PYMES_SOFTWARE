@@ -23,9 +23,10 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuLabel,
+    DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, FileDown } from "lucide-react";
 import { PayPayrollDialog } from "@/components/payroll/pay-payroll-dialog";
 import React from "react";
 
@@ -127,6 +128,12 @@ export const getColumns = (accounts: any[]): ColumnDef<Payroll>[] => [
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                        <DropdownMenuItem asChild>
+                            <a href={`/api/documents/payrolls/${payroll.id}/pdf`} target="_blank">
+                                <FileDown className="mr-2 h-4 w-4" />
+                                Descargar PDF
+                            </a>
+                        </DropdownMenuItem>
                         <PayPayrollDialog
                             payrollId={payroll.id}
                             employeeName={`${payroll.employee.firstName} ${payroll.employee.lastName}`}

@@ -1,6 +1,5 @@
 import { getOrderDetails } from "../actions";
 import { getFinancialAccounts } from "@/app/dashboard/treasury/actions";
-import { DownloadPdfButton } from "@/components/documents/DownloadPdfButton";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +9,8 @@ import { OrderStatusActions } from "@/components/orders/order-status-actions";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Button } from "@/components/ui/button";
+import { FileDown, FileCode2 } from "lucide-react";
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -56,7 +57,18 @@ export default async function OrderDetailsPage({ params }: PageProps) {
                         <Badge className={paymentStatusColor} variant="outline">{order.paymentStatus}</Badge>
                     </div>
                     <div className="flex gap-2">
-                        <DownloadPdfButton order={order} />
+                        <Button variant="outline" size="sm" asChild>
+                            <a href={`/api/documents/orders/${order.id}/pdf`} target="_blank">
+                                <FileDown className="mr-2 h-4 w-4" />
+                                PDF
+                            </a>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
+                            <a href={`/api/documents/orders/${order.id}/xml`} download>
+                                <FileCode2 className="mr-2 h-4 w-4" />
+                                Pre-XML
+                            </a>
+                        </Button>
                         <OrderStatusActions
                             orderId={order.id}
                             status={order.status}

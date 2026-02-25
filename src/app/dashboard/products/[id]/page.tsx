@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { getProductMovements } from "../actions";
 import { AdjustStockDialog } from "./adjust-stock-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Package, Zap, ArrowLeft } from "lucide-react";
+import { Package, Zap, ArrowLeft, FileSpreadsheet } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -104,9 +104,17 @@ export default async function ProductDetailsPage(props: { params: Promise<{ id: 
 
             {product.type === "PRODUCT" && (
                 <div className="bg-card shadow-sm border rounded-lg overflow-hidden mt-8">
-                    <div className="p-6 border-b">
-                        <h3 className="text-lg font-semibold">Kardex (Historial de Movimientos)</h3>
-                        <p className="text-sm text-muted-foreground">Registro inmutable de todas las entradas, salidas y ajustes de este producto.</p>
+                    <div className="p-6 border-b flex justify-between items-center">
+                        <div>
+                            <h3 className="text-lg font-semibold">Kardex (Historial de Movimientos)</h3>
+                            <p className="text-sm text-muted-foreground">Registro inmutable de todas las entradas, salidas y ajustes de este producto.</p>
+                        </div>
+                        <Button variant="outline" size="sm" asChild>
+                            <a href={`/api/reports/kardex/export?productId=${product.id}`} download>
+                                <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" />
+                                Exportar a Excel
+                            </a>
+                        </Button>
                     </div>
                     <Table>
                         <TableHeader>
