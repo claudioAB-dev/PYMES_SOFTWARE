@@ -15,12 +15,12 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ organizationName, userEmail }: DashboardHeaderProps) {
     return (
-        <div className="h-16 border-b px-4 flex items-center justify-between bg-white w-full">
-            <div className="font-semibold text-lg text-slate-800">
+        <div className="h-16 border-b px-4 flex items-center justify-between bg-white w-full" suppressHydrationWarning>
+            <div className="font-semibold text-lg text-slate-800" suppressHydrationWarning>
                 {organizationName}
             </div>
 
-            <div className="flex items-center gap-x-4">
+            <div className="flex items-center gap-x-4" suppressHydrationWarning>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Avatar className="cursor-pointer">

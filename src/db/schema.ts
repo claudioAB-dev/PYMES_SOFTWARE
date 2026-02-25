@@ -11,6 +11,11 @@ export const paymentMethodEnum = pgEnum('payment_method', ['CASH', 'TRANSFER', '
 export const productTypeEnum = pgEnum('product_type', ['PRODUCT', 'SERVICE']);
 export const invitationStatusEnum = pgEnum('invitation_status', ['PENDING', 'ACCEPTED', 'EXPIRED', 'REVOKED']);
 export const movementTypeEnum = pgEnum('movement_type', ['IN_PURCHASE', 'OUT_SALE', 'IN_RETURN', 'OUT_RETURN', 'ADJUSTMENT']);
+export const payrollPeriodEnum = pgEnum('payroll_period', ['WEEKLY', 'BIWEEKLY', 'MONTHLY']);
+export const payrollStatusEnum = pgEnum('payroll_status', ['DRAFT', 'APPROVED', 'PAID']);
+export const accountTypeEnum = pgEnum('account_type', ['BANK', 'CASH', 'CREDIT']);
+export const transactionTypeEnum = pgEnum('transaction_type', ['INCOME', 'EXPENSE', 'TRANSFER']);
+export const transactionCategoryEnum = pgEnum('transaction_category', ['SALE', 'PURCHASE', 'PAYROLL', 'OPERATING_EXPENSE', 'TAX', 'CAPITAL']);
 
 // --- TABLES ---
 
@@ -141,10 +146,71 @@ export const inventoryMovements = pgTable("inventory_movements", {
     createdBy: uuid("created_by").references(() => users.id).notNull(),
 });
 
+// 11. Employees (HR)
+export const employees = pgTable("employees", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    taxId: text("tax_id"), // RFC
+    socialSecurityNumber: text("social_security_number"), // NSS
+    baseSalary: decimal("base_salary", { precision: 12, scale: 2 }).notNull(),
+    paymentPeriod: payrollPeriodEnum("payment_period").default('BIWEEKLY').notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    joinedAt: timestamp("joined_at").defaultNow().notNull(), // Date they joined
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 12. Payrolls (HR)
+export const payrolls = pgTable("payrolls", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    employeeId: uuid("employee_id").references(() => employees.id).notNull(),
+    periodStart: timestamp("period_start").notNull(),
+    periodEnd: timestamp("period_end").notNull(),
+    grossAmount: decimal("gross_amount", { precision: 12, scale: 2 }).notNull(),
+    deductions: decimal("deductions", { precision: 12, scale: 2 }).default('0').notNull(),
+    netAmount: decimal("net_amount", { precision: 12, scale: 2 }).notNull(),
+    status: payrollStatusEnum("status").default('DRAFT').notNull(),
+    paymentDate: timestamp("payment_date"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 13. Financial Accounts (Treasury)
+export const financialAccounts = pgTable("financial_accounts", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    name: text("name").notNull(),
+    type: accountTypeEnum("type").notNull(),
+    currency: text("currency").default('MXN').notNull(),
+    balance: decimal("balance", { precision: 12, scale: 2 }).default('0').notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 14. Treasury Transactions (Ledger)
+export const treasuryTransactions = pgTable("treasury_transactions", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    accountId: uuid("account_id").references(() => financialAccounts.id).notNull(),
+    type: transactionTypeEnum("type").notNull(),
+    category: transactionCategoryEnum("category").notNull(),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    referenceId: uuid("reference_id"),
+    description: text("description").notNull(),
+    date: timestamp("date").defaultNow().notNull(),
+    createdBy: uuid("created_by").references(() => users.id).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // --- RELATIONS ---
 export const usersRelations = relations(users, ({ many }) => ({
     memberships: many(memberships),
     inventoryMovements: many(inventoryMovements),
+    treasuryTransactions: many(treasuryTransactions),
 }));
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
@@ -155,6 +221,10 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
     payments: many(payments),
     invitations: many(invitations),
     inventoryMovements: many(inventoryMovements),
+    employees: many(employees),
+    payrolls: many(payrolls),
+    financialAccounts: many(financialAccounts),
+    treasuryTransactions: many(treasuryTransactions),
 }));
 
 export const membershipsRelations = relations(memberships, ({ one }) => ({
@@ -188,4 +258,25 @@ export const inventoryMovementsRelations = relations(inventoryMovements, ({ one 
     organization: one(organizations, { fields: [inventoryMovements.organizationId], references: [organizations.id] }),
     product: one(products, { fields: [inventoryMovements.productId], references: [products.id] }),
     user: one(users, { fields: [inventoryMovements.createdBy], references: [users.id] }),
+}));
+
+export const employeesRelations = relations(employees, ({ one, many }) => ({
+    organization: one(organizations, { fields: [employees.organizationId], references: [organizations.id] }),
+    payrolls: many(payrolls),
+}));
+
+export const payrollsRelations = relations(payrolls, ({ one }) => ({
+    organization: one(organizations, { fields: [payrolls.organizationId], references: [organizations.id] }),
+    employee: one(employees, { fields: [payrolls.employeeId], references: [employees.id] }),
+}));
+
+export const financialAccountsRelations = relations(financialAccounts, ({ one, many }) => ({
+    organization: one(organizations, { fields: [financialAccounts.organizationId], references: [organizations.id] }),
+    transactions: many(treasuryTransactions),
+}));
+
+export const treasuryTransactionsRelations = relations(treasuryTransactions, ({ one }) => ({
+    organization: one(organizations, { fields: [treasuryTransactions.organizationId], references: [organizations.id] }),
+    account: one(financialAccounts, { fields: [treasuryTransactions.accountId], references: [financialAccounts.id] }),
+    user: one(users, { fields: [treasuryTransactions.createdBy], references: [users.id] }),
 }));

@@ -1,4 +1,5 @@
 import { getOrderDetails } from "@/app/dashboard/orders/actions";
+import { getFinancialAccounts } from "@/app/dashboard/treasury/actions";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,9 +16,10 @@ interface PageProps {
 
 export default async function PurchaseOrderDetailsPage({ params }: PageProps) {
     const { id } = await params;
-    // We can reuse getOrderDetails from orders as it fetches the order logic regardless of type
-    // Though we might need to verify the type to ensure it's a purchase order in production
-    const order = await getOrderDetails(id);
+    const [order, accounts] = await Promise.all([
+        getOrderDetails(id),
+        getFinancialAccounts(),
+    ]);
 
     if (!order || order.type !== 'PURCHASE') return notFound();
 
@@ -190,6 +192,7 @@ export default async function PurchaseOrderDetailsPage({ params }: PageProps) {
                                 <RegisterSupplierPaymentSheet
                                     orderId={order.id}
                                     pendingBalance={pendingBalance}
+                                    accounts={accounts}
                                 />
                             </div>
                         </CardContent>

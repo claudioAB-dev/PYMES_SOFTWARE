@@ -1,22 +1,22 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { toast } from "sonner"
-import { registerPayment } from "@/app/dashboard/orders/actions"
+import { markPayrollAsPaid } from "@/app/dashboard/hr/actions"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-} from "@/components/ui/sheet"
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog"
 import {
     Form,
     FormControl,
@@ -32,9 +32,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { DollarSign } from "lucide-react"
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 
 const paymentSchema = z.object({
-    amount: z.coerce.number().min(0.01, "El monto debe ser mayor a 0"),
     method: z.enum(["CASH", "TRANSFER", "CARD", "OTHER"], {
         required_error: "Seleccione un método de pago",
     }),
@@ -44,89 +45,60 @@ const paymentSchema = z.object({
     reference: z.string().optional(),
 })
 
-interface RegisterPaymentSheetProps {
-    orderId: string
-    pendingBalance: number
+interface PayPayrollDialogProps {
+    payrollId: string
+    employeeName: string
+    netAmount: string
     accounts: { id: string, name: string, currency: string, balance: string }[]
+    disabled?: boolean
 }
 
-export function RegisterPaymentSheet({ orderId, pendingBalance, accounts }: RegisterPaymentSheetProps) {
+export function PayPayrollDialog({ payrollId, employeeName, netAmount, accounts, disabled }: PayPayrollDialogProps) {
     const [open, setOpen] = useState(false)
-    const [isPending, setIsPending] = useState(false)
+    const [isPending, startTransition] = useTransition()
 
     const form = useForm<z.infer<typeof paymentSchema>>({
         resolver: zodResolver(paymentSchema),
         defaultValues: {
-            amount: pendingBalance,
-            method: "CASH",
+            method: "TRANSFER",
             accountId: accounts.length > 0 ? accounts[0].id : "",
             reference: "",
         },
     })
 
-    async function onSubmit(values: z.infer<typeof paymentSchema>) {
-        setIsPending(true)
-        try {
-            if (values.amount > pendingBalance + 0.01) {
-                form.setError("amount", { message: "El monto excede el saldo pendiente" })
-                return
-            }
-
-            const result = await registerPayment(orderId, values.amount, values.method, values.accountId, values.reference)
-
+    function onSubmit(values: z.infer<typeof paymentSchema>) {
+        startTransition(async () => {
+            const result = await markPayrollAsPaid(payrollId, values.method, values.accountId, values.reference)
             if (result?.error) {
                 toast.error(result.error)
             } else {
-                toast.success("Pago registrado correctamente")
+                toast.success("Nómina pagada correctamente")
                 setOpen(false)
-                // Reset form but keep method, maybe? Or reset wholly.
-                // We can't easily know the NEW pending balance here without props update, 
-                // effectively next open will re-init defaults if we force it, 
-                // but react-hook-form doesn't auto-reset on prop change unless configured.
-                // Simple reset is fine.
                 form.reset()
             }
-        } catch (err) {
-            toast.error("Ocurrió un error inesperado")
-        } finally {
-            setIsPending(false)
-        }
+        })
     }
 
-    // Effect to update default amount when pendingBalance changes (e.g. after a partial payment revalidation)
-    // This helps if the user re-opens the sheet immediately.
-    // We can just rely on the form key or reset in useEffect.
-
     return (
-        <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-                <Button disabled={pendingBalance <= 0}>
-                    {pendingBalance <= 0 ? "Pagado" : "Registrar Pago"}
-                </Button>
-            </SheetTrigger>
-            <SheetContent>
-                <SheetHeader>
-                    <SheetTitle>Registrar Pago</SheetTitle>
-                    <SheetDescription>
-                        Saldo Pendiente: ${pendingBalance.toFixed(2)}
-                    </SheetDescription>
-                </SheetHeader>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                {/* We use a div styled like DropdownMenuItem instead of real DropdownMenuItem to avoid nesting issues with Dialog */}
+                <div
+                    className={`relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 ${disabled ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                >
+                    <DollarSign className="mr-2 h-4 w-4" />
+                    Registrar Pago
+                </div>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Pagar Nómina</DialogTitle>
+                    <DialogDescription>
+                        Registra el pago de <strong>{employeeName}</strong> por la cantidad neta de <strong>${Number(netAmount).toFixed(2)}</strong>.
+                    </DialogDescription>
+                </DialogHeader>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
-                        <FormField
-                            control={form.control}
-                            name="amount"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Monto</FormLabel>
-                                    <FormControl>
-                                        <Input type="number" step="0.01" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
                         <FormField
                             control={form.control}
                             name="method"
@@ -140,8 +112,8 @@ export function RegisterPaymentSheet({ orderId, pendingBalance, accounts }: Regi
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="CASH">Efectivo</SelectItem>
                                             <SelectItem value="TRANSFER">Transferencia</SelectItem>
+                                            <SelectItem value="CASH">Efectivo</SelectItem>
                                             <SelectItem value="CARD">Tarjeta</SelectItem>
                                             <SelectItem value="OTHER">Otro</SelectItem>
                                         </SelectContent>
@@ -156,7 +128,7 @@ export function RegisterPaymentSheet({ orderId, pendingBalance, accounts }: Regi
                             name="accountId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Cuenta / Caja</FormLabel>
+                                    <FormLabel>Cuenta de Origen</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
@@ -188,19 +160,22 @@ export function RegisterPaymentSheet({ orderId, pendingBalance, accounts }: Regi
                                 <FormItem>
                                     <FormLabel>Referencia / Folio (Opcional)</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="Ej. 12345" {...field} />
+                                        <Input placeholder="Ej. TR-12345" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
 
-                        <Button type="submit" disabled={isPending} className="w-full">
-                            {isPending ? "Registrando..." : "Confirmar Pago"}
-                        </Button>
+                        <div className="flex justify-end space-x-2 pt-4">
+                            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={isPending}>
+                                {isPending ? "Procesando..." : "Confirmar Pago"}
+                            </Button>
+                        </div>
                     </form>
                 </Form>
-            </SheetContent>
-        </Sheet>
+            </DialogContent>
+        </Dialog>
     )
 }

@@ -10,6 +10,9 @@ import {
     Settings,
     Package,
     CreditCard,
+    Briefcase,
+    Receipt,
+    Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -56,6 +59,24 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
             icon: Package,
             href: "/dashboard/products",
             color: "text-orange-700",
+        },
+        {
+            label: "R. Humanos",
+            icon: Briefcase,
+            href: "/dashboard/hr",
+            color: "text-indigo-500",
+        },
+        {
+            label: "Nóminas",
+            icon: Receipt,
+            href: "/dashboard/payroll",
+            color: "text-teal-500",
+        },
+        {
+            label: "Tesorería",
+            icon: Wallet,
+            href: "/dashboard/treasury",
+            color: "text-yellow-500",
         },
         {
             label: "Configuración",

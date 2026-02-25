@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/db";
-import { orders, orderItems, memberships, products, entities, payments, inventoryMovements } from "@/db/schema";
+import { orders, orderItems, memberships, products, entities, payments, inventoryMovements, financialAccounts, treasuryTransactions } from "@/db/schema";
 import { eq, desc, and, inArray, sql } from "drizzle-orm";
 import { createOrderSchema, CreateOrderInput } from "@/lib/validators/orders";
 import { revalidatePath } from "next/cache";
@@ -319,7 +319,7 @@ export async function getOrderDetails(orderId: string) {
     return order;
 }
 
-export async function registerPayment(orderId: string, amount: number, method: 'CASH' | 'TRANSFER' | 'CARD' | 'OTHER', reference?: string) {
+export async function registerPayment(orderId: string, amount: number, method: 'CASH' | 'TRANSFER' | 'CARD' | 'OTHER', accountId: string, reference?: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -363,6 +363,16 @@ export async function registerPayment(orderId: string, amount: number, method: '
                 throw new Error("El monto debe ser mayor a 0");
             }
 
+            // 2.5 Verify Account
+            const account = await tx.query.financialAccounts.findFirst({
+                where: and(
+                    eq(financialAccounts.id, accountId),
+                    eq(financialAccounts.organizationId, organizationId)
+                )
+            });
+
+            if (!account) throw new Error("Cuenta financiera no encontrada");
+
             // 3. Register Payment
             await tx.insert(payments).values({
                 organizationId,
@@ -371,6 +381,22 @@ export async function registerPayment(orderId: string, amount: number, method: '
                 method,
                 reference,
             });
+
+            // 3.5 Update Treasury
+            await tx.insert(treasuryTransactions).values({
+                organizationId,
+                accountId,
+                type: 'INCOME',
+                category: 'SALE',
+                amount: amount.toString(),
+                referenceId: orderId,
+                description: reference ? `Pago venta: ${reference}` : `Pago venta: ${orderId.substring(0, 8)}`,
+                createdBy: user.id,
+            });
+
+            await tx.update(financialAccounts)
+                .set({ balance: sql`${financialAccounts.balance} + ${amount}` })
+                .where(eq(financialAccounts.id, accountId));
 
             // 4. Update Order Status
             const newTotalPaid = totalPaid + amount;

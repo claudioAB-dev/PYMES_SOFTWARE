@@ -1,4 +1,5 @@
 import { getOrderDetails } from "../actions";
+import { getFinancialAccounts } from "@/app/dashboard/treasury/actions";
 import { DownloadPdfButton } from "@/components/documents/DownloadPdfButton";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,10 @@ interface PageProps {
 
 export default async function OrderDetailsPage({ params }: PageProps) {
     const { id } = await params;
-    const order = await getOrderDetails(id);
+    const [order, accounts] = await Promise.all([
+        getOrderDetails(id),
+        getFinancialAccounts(),
+    ]);
 
     if (!order) return notFound();
 
@@ -190,6 +194,7 @@ export default async function OrderDetailsPage({ params }: PageProps) {
                                 <RegisterPaymentSheet
                                     orderId={order.id}
                                     pendingBalance={pendingBalance}
+                                    accounts={accounts}
                                 />
                             </div>
                         </CardContent>

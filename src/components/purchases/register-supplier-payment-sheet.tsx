@@ -38,15 +38,19 @@ const paymentSchema = z.object({
     method: z.enum(["CASH", "TRANSFER", "CARD", "OTHER"], {
         required_error: "Seleccione un método de pago",
     }),
+    accountId: z.string({
+        required_error: "Seleccione una cuenta",
+    }).uuid(),
     reference: z.string().optional(),
 })
 
 interface RegisterSupplierPaymentSheetProps {
     orderId: string
     pendingBalance: number
+    accounts: { id: string, name: string, currency: string, balance: string }[]
 }
 
-export function RegisterSupplierPaymentSheet({ orderId, pendingBalance }: RegisterSupplierPaymentSheetProps) {
+export function RegisterSupplierPaymentSheet({ orderId, pendingBalance, accounts }: RegisterSupplierPaymentSheetProps) {
     const [open, setOpen] = useState(false)
     const [isPending, setIsPending] = useState(false)
 
@@ -55,6 +59,7 @@ export function RegisterSupplierPaymentSheet({ orderId, pendingBalance }: Regist
         defaultValues: {
             amount: pendingBalance,
             method: "TRANSFER",
+            accountId: accounts.length > 0 ? accounts[0].id : "",
             reference: "",
         },
     })
@@ -67,7 +72,7 @@ export function RegisterSupplierPaymentSheet({ orderId, pendingBalance }: Regist
                 return
             }
 
-            const result = await registerSupplierPayment(orderId, values.amount, values.method, values.reference)
+            const result = await registerSupplierPayment(orderId, values.amount, values.method, values.accountId, values.reference)
 
             if (result?.error) {
                 toast.error(result.error)
@@ -130,6 +135,36 @@ export function RegisterSupplierPaymentSheet({ orderId, pendingBalance }: Regist
                                             <SelectItem value="CASH">Efectivo</SelectItem>
                                             <SelectItem value="CARD">Tarjeta</SelectItem>
                                             <SelectItem value="OTHER">Otro</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="accountId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Cuenta de Origen</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Seleccione una cuenta" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {accounts.map((acc) => (
+                                                <SelectItem key={acc.id} value={acc.id}>
+                                                    {acc.name} ({acc.currency})
+                                                </SelectItem>
+                                            ))}
+                                            {accounts.length === 0 && (
+                                                <SelectItem value="empty" disabled>
+                                                    No hay cuentas disponibles
+                                                </SelectItem>
+                                            )}
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />
