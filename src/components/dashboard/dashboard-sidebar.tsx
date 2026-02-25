@@ -9,6 +9,7 @@ import {
     ShoppingCart,
     Settings,
     Package,
+    CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -33,10 +34,22 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
             color: "text-violet-500",
         },
         {
+            label: "Compras",
+            icon: ShoppingCart, // Reusing ShoppingCart or a similar icon; we'll assume lucide-react has it
+            href: "/dashboard/purchases",
+            color: "text-emerald-500",
+        },
+        {
             label: "Ventas",
             icon: ShoppingCart,
             href: "/dashboard/orders",
             color: "text-pink-700",
+        },
+        {
+            label: "Cuentas x Cobrar",
+            icon: CreditCard,
+            href: "/dashboard/receivables",
+            color: "text-blue-500",
         },
         {
             label: "Productos",

@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/db";
-import { orders, orderItems, memberships, products, entities, payments } from "@/db/schema";
+import { orders, orderItems, memberships, products, entities, payments, inventoryMovements } from "@/db/schema";
 import { eq, desc, and, inArray, sql } from "drizzle-orm";
 import { createOrderSchema, CreateOrderInput } from "@/lib/validators/orders";
 import { revalidatePath } from "next/cache";
@@ -75,6 +75,50 @@ export async function createOrder(input: CreateOrderInput) {
         return { error: "No se encontró organización activa" };
     }
     const organizationId = userMemberships[0].organizationId;
+    const userRole = userMemberships[0].role;
+
+    // --- Validate Credit Limit (Only for Sales) ---
+    // Calculate new order total to check against credit 
+    let orderSubtotal = 0;
+    for (const item of items) {
+        orderSubtotal += item.quantity * item.price;
+    }
+    const newOrderTotal = orderSubtotal * 1.16; // 16% IVA
+
+    const entity = await db.query.entities.findFirst({
+        where: eq(entities.id, entityId)
+    });
+
+    if (!entity) {
+        return { error: "Cliente no encontrado" };
+    }
+
+    if (Number(entity.creditLimit) > 0) {
+        const activeOrders = await db.query.orders.findMany({
+            where: and(
+                eq(orders.entityId, entityId),
+                eq(orders.organizationId, organizationId),
+                inArray(orders.paymentStatus, ['UNPAID', 'PARTIAL']),
+                inArray(orders.status, ['DRAFT', 'CONFIRMED'])
+            ),
+            with: {
+                payments: true
+            }
+        });
+
+        let currentBalance = 0;
+        for (const o of activeOrders) {
+            const orderAmount = Number(o.totalAmount);
+            const paidAmount = o.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+            currentBalance += (orderAmount - paidAmount);
+        }
+
+        if ((currentBalance + newOrderTotal) > Number(entity.creditLimit)) {
+            if (userRole !== 'OWNER') {
+                return { error: `Límite de crédito excedido. Saldo actual: $${currentBalance.toFixed(2)}. Límite: $${Number(entity.creditLimit).toFixed(2)}.` };
+            }
+        }
+    }
 
     // --- Validate Stock ---
     const productIds = items.map(i => i.productId);
@@ -126,9 +170,24 @@ export async function createOrder(input: CreateOrderInput) {
                 // Deduct stock if it's a product
                 const product = productMap.get(item.productId);
                 if (product && product.type === 'PRODUCT') {
-                    await tx.update(products)
+                    const [updated] = await tx.update(products)
                         .set({ stock: sql`${products.stock} - ${item.quantity}` })
-                        .where(eq(products.id, item.productId));
+                        .where(eq(products.id, item.productId))
+                        .returning({ stock: products.stock });
+
+                    const newStock = Number(updated.stock);
+                    const previousStock = newStock + item.quantity;
+
+                    await tx.insert(inventoryMovements).values({
+                        organizationId,
+                        productId: item.productId,
+                        type: 'OUT_SALE',
+                        quantity: item.quantity.toString(),
+                        previousStock: previousStock.toString(),
+                        newStock: newStock.toString(),
+                        referenceId: newOrder.id,
+                        createdBy: user.id
+                    });
                 }
             }
 
@@ -183,9 +242,25 @@ export async function deleteOrder(orderId: string) {
             for (const item of items) {
                 if (item.product.type === 'PRODUCT') {
                     // Ensure numeric addition even if quantity is string
-                    await tx.update(products)
+                    const [updated] = await tx.update(products)
                         .set({ stock: sql`${products.stock} + ${Number(item.quantity)}` })
-                        .where(eq(products.id, item.productId));
+                        .where(eq(products.id, item.productId))
+                        .returning({ stock: products.stock });
+
+                    const newStock = Number(updated.stock);
+                    const previousStock = newStock - Number(item.quantity);
+
+                    await tx.insert(inventoryMovements).values({
+                        organizationId,
+                        productId: item.productId,
+                        type: 'IN_RETURN',
+                        quantity: item.quantity.toString(),
+                        previousStock: previousStock.toString(),
+                        newStock: newStock.toString(),
+                        referenceId: orderId,
+                        notes: "Order deleted",
+                        createdBy: user.id
+                    });
                 }
             }
 
@@ -364,9 +439,25 @@ export async function updateOrderStatus(orderId: string, newStatus: 'CONFIRMED' 
                 // Restore Stock
                 for (const item of order.items) {
                     if (item.product.type === 'PRODUCT') {
-                        await tx.update(products)
+                        const [updated] = await tx.update(products)
                             .set({ stock: sql`${products.stock} + ${Number(item.quantity)}` })
-                            .where(eq(products.id, item.productId));
+                            .where(eq(products.id, item.productId))
+                            .returning({ stock: products.stock });
+
+                        const newStock = Number(updated.stock);
+                        const previousStock = newStock - Number(item.quantity);
+
+                        await tx.insert(inventoryMovements).values({
+                            organizationId,
+                            productId: item.productId,
+                            type: 'IN_RETURN',
+                            quantity: item.quantity.toString(),
+                            previousStock: previousStock.toString(),
+                            newStock: newStock.toString(),
+                            referenceId: orderId,
+                            notes: "Order cancelled",
+                            createdBy: user.id
+                        });
                     }
                 }
             }
@@ -383,9 +474,25 @@ export async function updateOrderStatus(orderId: string, newStatus: 'CONFIRMED' 
                             throw new Error(`Stock insuficiente para reactivar orden: ${item.product.name}`);
                         }
 
-                        await tx.update(products)
+                        const [updated] = await tx.update(products)
                             .set({ stock: sql`${products.stock} - ${Number(item.quantity)}` })
-                            .where(eq(products.id, item.productId));
+                            .where(eq(products.id, item.productId))
+                            .returning({ stock: products.stock });
+
+                        const newStock = Number(updated.stock);
+                        const previousStock = newStock + Number(item.quantity);
+
+                        await tx.insert(inventoryMovements).values({
+                            organizationId,
+                            productId: item.productId,
+                            type: 'OUT_SALE',
+                            quantity: item.quantity.toString(),
+                            previousStock: previousStock.toString(),
+                            newStock: newStock.toString(),
+                            referenceId: orderId,
+                            notes: "Order reactivated",
+                            createdBy: user.id
+                        });
                     }
                 }
             }

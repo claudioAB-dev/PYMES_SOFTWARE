@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, decimal, pgEnum, boolean } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, decimal, pgEnum, boolean, integer } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // --- ENUMS ---
@@ -10,6 +10,7 @@ export const paymentStatusEnum = pgEnum('payment_status', ['UNPAID', 'PARTIAL', 
 export const paymentMethodEnum = pgEnum('payment_method', ['CASH', 'TRANSFER', 'CARD', 'OTHER']);
 export const productTypeEnum = pgEnum('product_type', ['PRODUCT', 'SERVICE']);
 export const invitationStatusEnum = pgEnum('invitation_status', ['PENDING', 'ACCEPTED', 'EXPIRED', 'REVOKED']);
+export const movementTypeEnum = pgEnum('movement_type', ['IN_PURCHASE', 'OUT_SALE', 'IN_RETURN', 'OUT_RETURN', 'ADJUSTMENT']);
 
 // --- TABLES ---
 
@@ -54,6 +55,8 @@ export const entities = pgTable("entities", {
     legalName: text("legal_name"),
     taxId: text("tax_id"),
     postalCode: text("postal_code"),
+    creditLimit: decimal("credit_limit", { precision: 12, scale: 2 }).default('0'),
+    creditDays: integer("credit_days").default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -123,9 +126,25 @@ export const invitations = pgTable("invitations", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// 10. Inventory Movements (Kardex)
+export const inventoryMovements = pgTable("inventory_movements", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    productId: uuid("product_id").references(() => products.id).notNull(),
+    type: movementTypeEnum("type").notNull(),
+    quantity: decimal("quantity", { precision: 12, scale: 2 }).notNull(),
+    previousStock: decimal("previous_stock", { precision: 12, scale: 2 }).notNull(),
+    newStock: decimal("new_stock", { precision: 12, scale: 2 }).notNull(),
+    referenceId: uuid("reference_id"), // Can point to an orderId
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdBy: uuid("created_by").references(() => users.id).notNull(),
+});
+
 // --- RELATIONS ---
 export const usersRelations = relations(users, ({ many }) => ({
     memberships: many(memberships),
+    inventoryMovements: many(inventoryMovements),
 }));
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
@@ -135,6 +154,7 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
     orders: many(orders),
     payments: many(payments),
     invitations: many(invitations),
+    inventoryMovements: many(inventoryMovements),
 }));
 
 export const membershipsRelations = relations(memberships, ({ one }) => ({
@@ -162,4 +182,10 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 export const invitationsRelations = relations(invitations, ({ one }) => ({
     organization: one(organizations, { fields: [invitations.organizationId], references: [organizations.id] }),
     inviter: one(users, { fields: [invitations.invitedBy], references: [users.id] }),
+}));
+
+export const inventoryMovementsRelations = relations(inventoryMovements, ({ one }) => ({
+    organization: one(organizations, { fields: [inventoryMovements.organizationId], references: [organizations.id] }),
+    product: one(products, { fields: [inventoryMovements.productId], references: [products.id] }),
+    user: one(users, { fields: [inventoryMovements.createdBy], references: [users.id] }),
 }));

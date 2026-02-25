@@ -2,8 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/db";
-import { products, memberships } from "@/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { products, memberships, inventoryMovements } from "@/db/schema";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { productSchema, ProductInput } from "@/lib/validators/products";
 import { revalidatePath } from "next/cache";
 
@@ -129,3 +129,88 @@ export async function updateProduct(productId: string, input: Partial<ProductInp
         return { error: "Error al actualizar" };
     }
 }
+
+export async function adjustInventory(productId: string, newQuantity: number, notes?: string) {
+    try {
+        const { organizationId, role, user } = await getOrganizationId();
+
+        if (role !== 'OWNER' && role !== 'ADMIN') {
+            return { error: "No tienes permisos suficientes. Solo administradores pueden ajustar el inventario." };
+        }
+
+        if (newQuantity < 0) {
+            return { error: "El inventario no puede ser negativo." };
+        }
+
+        let success = false;
+        await db.transaction(async (tx) => {
+            const product = await tx.query.products.findFirst({
+                where: and(eq(products.id, productId), eq(products.organizationId, organizationId)),
+            });
+
+            if (!product) throw new Error("Producto no encontrado");
+
+            const previousStockNum = Number(product.stock);
+            if (previousStockNum === newQuantity) {
+                throw new Error("La nueva cantidad es igual a la actual.");
+            }
+
+            const difference = newQuantity - previousStockNum; // Can be negative or positive
+
+            await tx.update(products)
+                .set({ stock: newQuantity.toString() })
+                .where(eq(products.id, productId));
+
+            await tx.insert(inventoryMovements).values({
+                organizationId,
+                productId,
+                type: 'ADJUSTMENT',
+                quantity: difference.toString(),
+                previousStock: previousStockNum.toString(),
+                newStock: newQuantity.toString(),
+                notes: notes || "Ajuste manual",
+                createdBy: user.id
+            });
+            success = true;
+        });
+
+        if (success) {
+            revalidatePath(`/dashboard/products/${productId}`);
+            revalidatePath("/dashboard/products");
+            return { success: true };
+        }
+        return { error: "No se pudo realizar el ajuste." };
+
+    } catch (error: any) {
+        console.error("Error adjusting inventory:", error);
+        return { error: error.message || "Error al ajustar inventario" };
+    }
+}
+
+export async function getProductMovements(productId: string) {
+    try {
+        const { organizationId } = await getOrganizationId();
+
+        const movements = await db.query.inventoryMovements.findMany({
+            where: and(
+                eq(inventoryMovements.productId, productId),
+                eq(inventoryMovements.organizationId, organizationId)
+            ),
+            with: {
+                user: {
+                    columns: {
+                        fullName: true,
+                        email: true
+                    }
+                }
+            },
+            orderBy: [desc(inventoryMovements.createdAt)],
+        });
+
+        return movements;
+    } catch (error) {
+        console.error("Error fetching product movements:", error);
+        return [];
+    }
+}
+

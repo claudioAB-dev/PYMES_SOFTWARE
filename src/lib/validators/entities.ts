@@ -10,6 +10,8 @@ export const createEntitySchema = z.object({
     type: entityTypeEnum,
     email: z.string().email("Invalid email address").optional().or(z.literal("")),
     commercialName: z.string().min(2, "Commercial name must be at least 2 characters").optional().or(z.literal("")),
+    creditLimit: z.coerce.number().min(0).optional().default(0),
+    creditDays: z.coerce.number().int().min(0).optional().default(0),
 });
 
 export type CreateEntityInput = z.infer<typeof createEntitySchema>;

@@ -74,6 +74,8 @@ export async function createEntity(input: CreateEntityInput) {
             legalName: validatedFields.data.commercialName,
             taxId: validatedFields.data.rfc?.toUpperCase(),
             postalCode: null,
+            creditLimit: validatedFields.data.creditLimit?.toString() || '0',
+            creditDays: validatedFields.data.creditDays || 0,
         });
 
         revalidatePath("/dashboard/entities");

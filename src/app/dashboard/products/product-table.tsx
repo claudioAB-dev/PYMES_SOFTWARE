@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
     ColumnDef,
     flexRender,
@@ -56,6 +57,14 @@ export const columns: ColumnDef<Product>[] = [
     {
         accessorKey: "name",
         header: "Nombre",
+        cell: ({ row }) => {
+            const product = row.original;
+            return (
+                <Link href={`/dashboard/products/${product.id}`} className="font-medium hover:underline text-primary">
+                    {product.name}
+                </Link>
+            )
+        }
     },
     {
         accessorKey: "type",
@@ -135,10 +144,11 @@ export const columns: ColumnDef<Product>[] = [
                         >
                             Copiar ID
                         </DropdownMenuItem>
-                        {/* Edit Action - Placeholder for now */}
-                        <DropdownMenuItem disabled>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
+                        {/* Detail Action */}
+                        <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/products/${product.id}`}>
+                                Ver Detalles / Kardex
+                            </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             onClick={handleArchive}

@@ -41,13 +41,15 @@ export function CreateEntitySheet() {
     // const { toast } = useToast(); 
 
     const form = useForm<CreateEntityInput>({
-        resolver: zodResolver(createEntitySchema),
+        resolver: zodResolver(createEntitySchema) as any,
         defaultValues: {
             name: "",
             rfc: "",
             type: "CLIENT",
             email: "",
             commercialName: "",
+            creditLimit: 0,
+            creditDays: 0,
         },
     });
 
@@ -147,6 +149,32 @@ export function CreateEntitySheet() {
                                         <FormLabel>Email</FormLabel>
                                         <FormControl>
                                             <Input placeholder="contacto@empresa.com" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="creditLimit"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Límite de Crédito ($)</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="creditDays"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Días de Crédito</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" placeholder="0" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

@@ -15,6 +15,7 @@ async function getOrganizationId() {
 
     const userMemberships = await db.query.memberships.findMany({
         where: eq(memberships.userId, user.id),
+        orderBy: [desc(memberships.createdAt)],
     });
 
     if (userMemberships.length === 0) return null;
