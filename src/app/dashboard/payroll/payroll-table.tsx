@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 import { PayPayrollDialog } from "@/components/payroll/pay-payroll-dialog";
+import React from "react";
 
 
 export type Payroll = {
@@ -140,15 +141,16 @@ export const getColumns = (accounts: any[]): ColumnDef<Payroll>[] => [
     },
 ];
 
-interface DataTableProps<TData, TValue> {
-    columns: ColumnDef<TData, TValue>[];
-    data: TData[];
+interface DataTableProps {
+    data: Payroll[];
+    accounts: any[];
 }
 
-export function PayrollTable<TData, TValue>({
-    columns,
+export function PayrollTable({
     data,
-}: DataTableProps<TData, TValue>) {
+    accounts,
+}: DataTableProps) {
+    const columns = React.useMemo(() => getColumns(accounts), [accounts]);
     const table = useReactTable({
         data,
         columns,

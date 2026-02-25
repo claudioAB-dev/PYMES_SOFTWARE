@@ -32,6 +32,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 // import { useToast } from "@/hooks/use-toast"; // Assuming this exists or I'll need to create it/install it. 
 // Shadcn usually installs a toast hook. If not, I'll skip toast for now or use alert.
 
@@ -182,6 +183,7 @@ export function CreateEntitySheet() {
                             />
                             <SheetFooter className="mt-6">
                                 <Button type="submit" disabled={isPending}>
+                                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     {isPending ? "Guardando..." : "Guardar"}
                                 </Button>
                             </SheetFooter>

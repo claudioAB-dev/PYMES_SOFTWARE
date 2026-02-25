@@ -16,11 +16,11 @@ import { updateOrganization, uploadLogo } from "./actions"
 
 const schema = z.object({
     organizationId: z.string(),
-    name: z.string(),
+    name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
     taxId: z.string().optional(),
     address: z.string().optional(),
     phone: z.string().optional(),
-    website: z.string().optional(),
+    website: z.string().url("Debe ser una URL válida").optional().or(z.literal("")),
 })
 
 type FormData = z.infer<typeof schema>
@@ -151,18 +151,30 @@ export function GeneralTab({ organization }: GeneralTabProps) {
                             <div className="space-y-2">
                                 <Label htmlFor="taxId">RFC / Identificación Fiscal</Label>
                                 <Input id="taxId" {...form.register("taxId")} placeholder="XAXX010101000" />
+                                {form.formState.errors.taxId && (
+                                    <p className="text-xs text-red-500">{form.formState.errors.taxId.message}</p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="phone">Teléfono</Label>
                                 <Input id="phone" {...form.register("phone")} placeholder="+52 55 1234 5678" />
+                                {form.formState.errors.phone && (
+                                    <p className="text-xs text-red-500">{form.formState.errors.phone.message}</p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="website">Sitio Web</Label>
                                 <Input id="website" {...form.register("website")} placeholder="https://mi-empresa.com" />
+                                {form.formState.errors.website && (
+                                    <p className="text-xs text-red-500">{form.formState.errors.website.message}</p>
+                                )}
                             </div>
                             <div className="space-y-2 md:col-span-2">
                                 <Label htmlFor="address">Dirección Fiscal</Label>
                                 <Input id="address" {...form.register("address")} placeholder="Calle, Número, Colonia, Ciudad, Estado, CP" />
+                                {form.formState.errors.address && (
+                                    <p className="text-xs text-red-500">{form.formState.errors.address.message}</p>
+                                )}
                             </div>
                         </div>
 

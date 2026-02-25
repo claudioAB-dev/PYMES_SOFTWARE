@@ -26,6 +26,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Loader2 } from "lucide-react";
 
 export function CreateProductSheet() {
     const [open, setOpen] = useState(false);
@@ -184,6 +185,7 @@ export function CreateProductSheet() {
 
                             <SheetFooter className="mt-6">
                                 <Button type="submit" disabled={isPending}>
+                                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     {isPending ? "Guardando..." : "Guardar"}
                                 </Button>
                             </SheetFooter>

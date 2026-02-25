@@ -13,7 +13,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
-import { acceptInvitation } from "@/app/(dashboard)/settings/team/actions"
+import { acceptInvitation } from "@/app/dashboard/settings/team/actions"
 
 interface InviteAcceptFormProps {
     userEmail: string

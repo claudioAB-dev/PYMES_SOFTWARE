@@ -43,7 +43,7 @@ export default async function DashboardLayout({
                     organizationName={activeOrganization.name}
                     userEmail={user.email}
                 />
-                <div className="p-8">
+                <div className="p-8" suppressHydrationWarning>
                     {children}
                 </div>
             </main>

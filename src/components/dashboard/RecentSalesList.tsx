@@ -32,7 +32,9 @@ export function RecentSalesList({ sales }: RecentSalesListProps) {
                                     </p>
                                 </div>
                                 <div className="ml-auto flex flex-col items-end">
-                                    <div className="text-sm font-medium">{formatCurrency(Number(sale.totalAmount))}</div>
+                                    <div className="text-sm font-medium" suppressHydrationWarning>
+                                        {formatCurrency(Number(sale.totalAmount))}
+                                    </div>
                                     <Badge variant={sale.status === 'CONFIRMED' ? 'default' : 'secondary'} className="text-[10px] px-1 py-0 h-5 mt-1">
                                         {sale.status}
                                     </Badge>

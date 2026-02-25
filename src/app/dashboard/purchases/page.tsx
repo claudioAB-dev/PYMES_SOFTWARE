@@ -3,8 +3,9 @@ import { db } from "@/db";
 import { orders, memberships } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ShoppingBag, Plus } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -67,8 +68,12 @@ export default async function PurchasesPage() {
                     <TableBody>
                         {purchasesData.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                                    No hay órdenes de compra registradas.
+                                <TableCell colSpan={6} className="text-center h-48 p-0">
+                                    <EmptyState
+                                        icon={ShoppingBag}
+                                        title="No hay compras registradas"
+                                        description="Crea tu primera orden de compra."
+                                    />
                                 </TableCell>
                             </TableRow>
                         ) : (

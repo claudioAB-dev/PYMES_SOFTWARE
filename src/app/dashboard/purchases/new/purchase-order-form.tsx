@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Loader2 } from "lucide-react";
 
 interface Product {
     id: string;
@@ -109,6 +110,7 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
                             </CardContent>
                             <CardFooter>
                                 <Button type="submit" className="w-full" disabled={isPending}>
+                                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     {isPending ? "Procesando..." : "Crear Orden de Compra"}
                                 </Button>
                             </CardFooter>

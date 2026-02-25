@@ -1,4 +1,8 @@
+"use client";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { signOutAction } from "@/app/login/actions";
+
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -32,7 +36,12 @@ export function DashboardHeader({ organizationName, userEmail }: DashboardHeader
                         <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem>Perfil</DropdownMenuItem>
-                        <DropdownMenuItem>Cerrar Sesión</DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() => signOutAction()}
+                            className="text-destructive focus:text-destructive cursor-pointer"
+                        >
+                            Cerrar Sesión
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>

@@ -3,7 +3,8 @@ import { db } from "@/db";
 import { orders, memberships, entities } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, ShoppingCart } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import Link from "next/link";
 import {
     Table,
@@ -63,8 +64,12 @@ export default async function OrdersPage() {
                     <TableBody>
                         {ordersData.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                                    No hay órdenes registradas.
+                                <TableCell colSpan={5} className="text-center h-48 p-0">
+                                    <EmptyState
+                                        icon={ShoppingCart}
+                                        title="No hay órdenes de venta"
+                                        description="Crea tu primera orden para comenzar a vender."
+                                    />
                                 </TableCell>
                             </TableRow>
                         ) : (

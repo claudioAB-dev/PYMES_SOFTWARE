@@ -1,6 +1,6 @@
 import { getPayrolls } from "../hr/actions";
 import { getFinancialAccounts } from "../treasury/actions";
-import { PayrollTable, getColumns } from "./payroll-table";
+import { PayrollTable } from "./payroll-table";
 import { CreatePayrollSheet } from "./create-payroll-sheet";
 
 export default async function PayrollPage() {
@@ -22,7 +22,8 @@ export default async function PayrollPage() {
             </div>
 
             {/* @ts-ignore */}
-            <PayrollTable columns={getColumns(accounts)} data={payrolls} />
+            <PayrollTable accounts={accounts} data={payrolls} />
         </div>
     );
 }
+

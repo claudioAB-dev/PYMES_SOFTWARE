@@ -20,7 +20,7 @@ export function KPICard({ title, value, icon: Icon, description, isCurrency = tr
                 <Icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold" suppressHydrationWarning>
                     {isCurrency ? formatCurrency(value) : value}
                 </div>
                 {description && (

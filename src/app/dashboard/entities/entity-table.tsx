@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Users } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 
 // This type should match the return type of getEntities
 // We can infer it or define it manually matching the DB schema
@@ -111,8 +113,12 @@ export function EntityTable<TData, TValue>({
                         ))
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={columns.length} className="h-24 text-center">
-                                No hay resultados.
+                            <TableCell colSpan={columns.length} className="h-48 text-center p-0">
+                                <EmptyState
+                                    icon={Users}
+                                    title="No hay entidades registradas"
+                                    description="Aún no has agregado ningún cliente o proveedor."
+                                />
                             </TableCell>
                         </TableRow>
                     )}

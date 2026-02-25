@@ -29,6 +29,7 @@ import { Package, Zap, MoreHorizontal, Pencil, Archive } from "lucide-react";
 import { archiveProduct } from "./actions";
 import { useTransition } from "react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export type Product = {
     id: string;
@@ -219,8 +220,12 @@ export function ProductTable<TData, TValue>({
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    No hay productos registrados.
+                                <TableCell colSpan={columns.length} className="h-48 text-center p-0">
+                                    <EmptyState
+                                        icon={Package}
+                                        title="No hay productos"
+                                        description="Aún no has registrado ningún producto o servicio."
+                                    />
                                 </TableCell>
                             </TableRow>
                         )}
