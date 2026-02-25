@@ -162,3 +162,116 @@ export async function getCashFlowSummary(startDate: Date, endDate: Date) {
         transactions
     };
 }
+
+export async function createFinancialAccount(input: {
+    name: string;
+    type: 'BANK' | 'CASH' | 'CREDIT';
+    currency: string;
+    initialBalance: number;
+}) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "No autorizado" };
+
+    const userMemberships = await db.query.memberships.findMany({
+        where: eq(memberships.userId, user.id),
+    });
+
+    if (userMemberships.length === 0) return { error: "No organization found" };
+    const { organizationId, role } = userMemberships[0];
+
+    if (!['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(role)) {
+        return { error: "No tienes permisos para crear cuentas" };
+    }
+
+    try {
+        await db.transaction(async (tx) => {
+            const [newAccount] = await tx.insert(financialAccounts).values({
+                organizationId,
+                name: input.name,
+                type: input.type,
+                currency: input.currency,
+                balance: input.initialBalance.toString(),
+                isActive: true,
+            }).returning({ id: financialAccounts.id });
+
+            if (input.initialBalance > 0) {
+                await tx.insert(treasuryTransactions).values({
+                    organizationId,
+                    accountId: newAccount.id,
+                    type: 'INCOME',
+                    category: 'CAPITAL',
+                    amount: input.initialBalance.toString(),
+                    description: 'Saldo inicial',
+                    createdBy: user.id,
+                });
+            } else if (input.initialBalance < 0) {
+                await tx.insert(treasuryTransactions).values({
+                    organizationId,
+                    accountId: newAccount.id,
+                    type: 'EXPENSE',
+                    category: 'CAPITAL', // Using CAPITAL for initial balance
+                    amount: Math.abs(input.initialBalance).toString(),
+                    description: 'Saldo inicial (Negativo)',
+                    createdBy: user.id,
+                });
+            }
+        });
+
+        revalidatePath("/dashboard/treasury");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error creating financial account:", error);
+        return { error: "Error al crear la cuenta financiera" };
+    }
+}
+
+export async function updateFinancialAccount(
+    accountId: string,
+    input: {
+        name?: string;
+        isActive?: boolean;
+    }
+) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "No autorizado" };
+
+    const userMemberships = await db.query.memberships.findMany({
+        where: eq(memberships.userId, user.id),
+    });
+
+    if (userMemberships.length === 0) return { error: "No organization found" };
+    const { organizationId, role } = userMemberships[0];
+
+    if (!['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(role)) {
+        return { error: "No tienes permisos para modificar cuentas" };
+    }
+
+    // Prepare update data
+    const updateData: any = {};
+    if (input.name !== undefined) updateData.name = input.name;
+    if (input.isActive !== undefined) updateData.isActive = input.isActive;
+    updateData.updatedAt = new Date();
+
+    if (Object.keys(updateData).length === 1) return { success: true }; // Only updatedAt
+
+    try {
+        await db.update(financialAccounts)
+            .set(updateData)
+            .where(
+                and(
+                    eq(financialAccounts.id, accountId),
+                    eq(financialAccounts.organizationId, organizationId)
+                )
+            );
+
+        revalidatePath("/dashboard/treasury");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating financial account:", error);
+        return { error: "Error al actualizar la cuenta financiera" };
+    }
+}

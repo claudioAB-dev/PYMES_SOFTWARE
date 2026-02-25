@@ -3,6 +3,8 @@ import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingUp, TrendingDown, Wallet } from "lucide-react";
 import { NewTransactionSheet } from "./new-transaction-sheet";
+import { CreateAccountSheet } from "./create-account-sheet";
+import { FinancialAccountsGrid } from "./financial-accounts-grid";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +44,10 @@ export default async function TreasuryPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Tesorería y Flujo de Caja</h1>
                     <p className="text-muted-foreground">Resume el estado financiero, cuentas y movimientos recientes.</p>
                 </div>
-                <NewTransactionSheet accounts={accounts} />
+                <div className="flex items-center gap-2">
+                    <CreateAccountSheet />
+                    <NewTransactionSheet accounts={accounts.filter(a => a.isActive)} />
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -89,74 +94,49 @@ export default async function TreasuryPage() {
                 </Card>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Cuentas */}
-                <div className="lg:col-span-1 space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Cuentas Financieras</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                {accounts.map(acc => (
-                                    <div key={acc.id} className="flex justify-between items-center border-b pb-2 last:border-0 last:pb-0">
-                                        <div>
-                                            <p className="font-medium">{acc.name}</p>
-                                            <p className="text-sm text-muted-foreground">{acc.type} • {acc.currency}</p>
-                                        </div>
-                                        <div className="font-bold">
-                                            {formatCurrency(Number(acc.balance))}
-                                        </div>
-                                    </div>
-                                ))}
-                                {accounts.length === 0 && (
-                                    <p className="text-sm text-muted-foreground text-center">No hay cuentas registradas.</p>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+            {/* Cuentas Financieras Grid */}
+            <div className="space-y-4">
+                <h2 className="text-xl font-bold tracking-tight">Cuentas Financieras</h2>
+                <FinancialAccountsGrid accounts={accounts} />
+            </div>
 
-                {/* Movimientos */}
-                <div className="lg:col-span-2 space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Movimientos Recientes</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {transactions.length === 0 ? (
-                                <p className="text-muted-foreground text-center">No hay transacciones registradas este mes.</p>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Fecha</TableHead>
-                                            <TableHead>Descripción / Ref</TableHead>
-                                            <TableHead>Cuenta</TableHead>
-                                            <TableHead>Categoría</TableHead>
-                                            <TableHead className="text-right">Monto</TableHead>
+            {/* Movimientos Recientes */}
+            <div className="space-y-4">
+                <h2 className="text-xl font-bold tracking-tight">Movimientos Recientes</h2>
+                <Card>
+                    <CardContent className="p-0">
+                        {transactions.length === 0 ? (
+                            <p className="text-muted-foreground text-center py-8">No hay transacciones registradas este mes.</p>
+                        ) : (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="pl-6">Fecha</TableHead>
+                                        <TableHead>Descripción / Ref</TableHead>
+                                        <TableHead>Cuenta</TableHead>
+                                        <TableHead>Categoría</TableHead>
+                                        <TableHead className="text-right pr-6">Monto</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {transactions.slice(0, 10).map((t) => (
+                                        <TableRow key={t.id}>
+                                            <TableCell className="pl-6">{format(new Date(t.date), "dd/MM/yyyy HH:mm")}</TableCell>
+                                            <TableCell className="max-w-[200px] truncate">{t.description}</TableCell>
+                                            <TableCell>{t.account.name}</TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline">{getCategoryLabel(t.category)}</Badge>
+                                            </TableCell>
+                                            <TableCell className={`text-right font-bold pr-6 ${t.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
+                                                {t.type === 'INCOME' ? '+' : '-'}{formatCurrency(Number(t.amount))}
+                                            </TableCell>
                                         </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {transactions.slice(0, 10).map((t) => (
-                                            <TableRow key={t.id}>
-                                                <TableCell>{format(new Date(t.date), "dd/MM/yyyy HH:mm")}</TableCell>
-                                                <TableCell className="max-w-[150px] truncate">{t.description}</TableCell>
-                                                <TableCell>{t.account.name}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline">{getCategoryLabel(t.category)}</Badge>
-                                                </TableCell>
-                                                <TableCell className={`text-right font-bold ${t.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {t.type === 'INCOME' ? '+' : '-'}{formatCurrency(Number(t.amount))}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
         </div>
     )
