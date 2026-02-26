@@ -61,7 +61,7 @@ export async function GET(
         }
 
         // Render PDF to stream
-        const pdfStream = await renderToStream(React.createElement(OrderPdf, { order }));
+        const pdfStream = await renderToStream(React.createElement(OrderPdf, { order }) as any);
 
         // Convert stream to readable web stream
         const stream = new ReadableStream({
