@@ -29,6 +29,13 @@
       "when": 1772055286621,
       "tag": "0003_real_squadron_sinister",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772064469910,
+      "tag": "0004_little_electro",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,7 @@ import {
     revokeInvitationSchema,
     acceptInvitationSchema,
     type InviteUserInput,
+    type AcceptInvitationInput,
 } from '@/lib/validators/team'
 
 // Helper: Get current user's membership
@@ -73,8 +74,8 @@ export async function getTeamData(organizationId: string) {
     }
 }
 
-// Invite user
-export async function inviteUser(input: InviteUserInput, organizationId: string) {
+// Invite member
+export async function inviteMember(input: InviteUserInput, organizationId: string) {
     const result = await getCurrentUserMembership(organizationId)
 
     if (!result || !result.membership) {
@@ -134,7 +135,7 @@ export async function inviteUser(input: InviteUserInput, organizationId: string)
         }
 
         // Generate secure token
-        const token = randomBytes(32).toString('hex')
+        const token = crypto.randomUUID()
 
         // Set expiration (7 days from now)
         const expiresAt = new Date()
@@ -296,19 +297,16 @@ export async function revokeInvitation(invitationId: string, organizationId: str
 }
 
 // Accept invitation
-export async function acceptInvitation(token: string) {
+export async function acceptInvite(input: AcceptInvitationInput) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-        return { error: 'Debes iniciar sesión para aceptar la invitación' }
-    }
 
     // Validate input
-    const validation = acceptInvitationSchema.safeParse({ token })
+    const validation = acceptInvitationSchema.safeParse(input)
     if (!validation.success) {
         return { error: validation.error.errors[0].message }
     }
+
+    const { token, fullName, password } = validation.data
 
     try {
         // Find invitation
@@ -335,28 +333,47 @@ export async function acceptInvitation(token: string) {
             return { error: 'Esta invitación ha expirado' }
         }
 
-        // Verify email matches (case-insensitive)
-        if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
-            return { error: 'Esta invitación es para otro correo electrónico' }
-        }
-
-        // Check if already a member
-        const existingMembership = await db.query.memberships.findFirst({
-            where: and(
-                eq(memberships.userId, user.id),
-                eq(memberships.organizationId, invitation.organizationId)
-            )
+        // Verify email doesn't exist in users table yet
+        const existingUser = await db.query.users.findFirst({
+            where: eq(users.email, invitation.email.toLowerCase())
         })
 
-        if (existingMembership) {
-            return { error: 'Ya eres miembro de esta organización' }
+        if (existingUser) {
+            return { error: 'El correo ya tiene una cuenta. Por favor inicia sesión primero.' }
         }
 
-        // Use transaction to create membership and update invitation
+        // Sign up with Supabase
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: invitation.email,
+            password,
+            options: {
+                data: {
+                    full_name: fullName,
+                }
+            }
+        })
+
+        if (authError) {
+            console.error('Supabase signup error:', authError)
+            return { error: 'Error al registrar la cuenta en Supabase' }
+        }
+
+        if (!authData.user) {
+            return { error: 'No se pudo crear el usuario' }
+        }
+
+        // Use transaction to create user, membership, and update invitation
         await db.transaction(async (tx) => {
+            // Create user
+            await tx.insert(users).values({
+                id: authData.user!.id,
+                email: invitation.email.toLowerCase(),
+                fullName,
+            })
+
             // Create membership
             await tx.insert(memberships).values({
-                userId: user.id,
+                userId: authData.user!.id,
                 organizationId: invitation.organizationId,
                 role: invitation.role,
             })

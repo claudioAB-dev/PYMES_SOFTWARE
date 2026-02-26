@@ -1,17 +1,13 @@
 "use client"
 
 import { useEffect, useState, useTransition } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import {
-    Users, Mail, Trash2, Copy, XCircle, Shield, UserPlus,
-    Loader2, CheckCircle2, Clock, AlertTriangle
+    Users, Trash2, Copy, XCircle, Shield,
+    Loader2, Clock, AlertTriangle, MoreHorizontal
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
     Card,
     CardContent,
@@ -28,12 +24,13 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
     AlertDialog,
     AlertDialogAction,
@@ -43,18 +40,16 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
-import { inviteUserSchema, type InviteUserInput } from "@/lib/validators/team"
 import {
     getTeamData,
-    inviteUser,
     removeMember,
     revokeInvitation
 } from "./team/actions"
+import { InviteMemberDialog } from "./team/invite-member-dialog"
 
 interface MembersTabProps {
     organizationId: string
@@ -78,18 +73,10 @@ const roleLabels = {
 export function MembersTab({ organizationId, currentUserRole }: MembersTabProps) {
     const [teamData, setTeamData] = useState<any>(null)
     const [isLoading, setIsLoading] = useState(true)
-    const [inviteLink, setInviteLink] = useState<string | null>(null)
-    const [isPending, startTransition] = useTransition()
+    const [memberToRemove, setMemberToRemove] = useState<string | null>(null)
+    const [invitationToRevoke, setInvitationToRevoke] = useState<string | null>(null)
 
     const canManageTeam = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN'
-
-    const form = useForm<InviteUserInput>({
-        resolver: zodResolver(inviteUserSchema),
-        defaultValues: {
-            email: "",
-            role: "MEMBER",
-        },
-    })
 
     // Load team data
     const loadTeamData = async () => {
@@ -107,21 +94,6 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
         loadTeamData()
     }, [organizationId])
 
-    // Handle invitation
-    const onInvite = async (data: InviteUserInput) => {
-        startTransition(async () => {
-            const result = await inviteUser(data, organizationId)
-            if (result.error) {
-                toast.error(result.error)
-            } else {
-                toast.success("Invitación creada correctamente")
-                setInviteLink(result.inviteLink || null)
-                form.reset()
-                loadTeamData()
-            }
-        })
-    }
-
     // Copy invitation link
     const copyInviteLink = (link: string) => {
         navigator.clipboard.writeText(link)
@@ -129,25 +101,29 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
     }
 
     // Remove member
-    const handleRemoveMember = async (memberId: string) => {
-        const result = await removeMember(memberId, organizationId)
+    const handleRemoveMember = async () => {
+        if (!memberToRemove) return
+        const result = await removeMember(memberToRemove, organizationId)
         if (result.error) {
             toast.error(result.error)
         } else {
             toast.success("Miembro eliminado correctamente")
             loadTeamData()
         }
+        setMemberToRemove(null)
     }
 
     // Revoke invitation
-    const handleRevokeInvitation = async (invitationId: string) => {
-        const result = await revokeInvitation(invitationId, organizationId)
+    const handleRevokeInvitation = async () => {
+        if (!invitationToRevoke) return
+        const result = await revokeInvitation(invitationToRevoke, organizationId)
         if (result.error) {
             toast.error(result.error)
         } else {
             toast.success("Invitación revocada")
             loadTeamData()
         }
+        setInvitationToRevoke(null)
     }
 
     // Format date
@@ -174,107 +150,29 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
 
     return (
         <div className="space-y-6">
-            {/* Invitation Form - Only for ADMIN/OWNER */}
-            {canManageTeam && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <UserPlus className="h-5 w-5" />
-                            Invitar Nuevo Miembro
-                        </CardTitle>
-                        <CardDescription>
-                            Genera un enlace de invitación para agregar miembros a tu equipo.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={form.handleSubmit(onInvite)} className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="md:col-span-2 space-y-2">
-                                    <Label htmlFor="email">Correo Electrónico</Label>
-                                    <Input
-                                        id="email"
-                                        type="email"
-                                        placeholder="usuario@ejemplo.com"
-                                        {...form.register("email")}
-                                    />
-                                    {form.formState.errors.email && (
-                                        <p className="text-sm text-red-500">
-                                            {form.formState.errors.email.message}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="role">Rol</Label>
-                                    <Select
-                                        value={form.watch("role")}
-                                        onValueChange={(value) => form.setValue("role", value as any)}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecciona un rol" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="MEMBER">Miembro</SelectItem>
-                                            {currentUserRole === 'OWNER' && (
-                                                <SelectItem value="ADMIN">Administrador</SelectItem>
-                                            )}
-                                            <SelectItem value="ACCOUNTANT">Contador</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-
-                            <Button type="submit" disabled={isPending}>
-                                {isPending ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Mail className="mr-2 h-4 w-4" />
-                                )}
-                                Generar Invitación
-                            </Button>
-                        </form>
-
-                        {/* Display generated invite link */}
-                        {inviteLink && (
-                            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                                <div className="flex items-start gap-2">
-                                    <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
-                                    <div className="flex-1 space-y-2">
-                                        <p className="text-sm font-medium text-green-900">
-                                            Invitación creada correctamente
-                                        </p>
-                                        <div className="flex items-center gap-2">
-                                            <code className="flex-1 p-2 bg-white border rounded text-xs break-all">
-                                                {inviteLink}
-                                            </code>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => copyInviteLink(inviteLink)}
-                                            >
-                                                <Copy className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                        <p className="text-xs text-green-700">
-                                            Comparte este enlace con el usuario invitado. Expira en 7 días.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h3 className="text-lg font-medium">Gestión del Equipo</h3>
+                    <p className="text-sm text-muted-foreground">
+                        Administra los miembros de tu organización y sus roles.
+                    </p>
+                </div>
+                {canManageTeam && (
+                    <InviteMemberDialog
+                        organizationId={organizationId}
+                        currentUserRole={currentUserRole}
+                        onSuccess={loadTeamData}
+                    />
+                )}
+            </div>
 
             {/* Current Members */}
             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Users className="h-5 w-5" />
-                        Miembros del Equipo
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-md flex items-center gap-2">
+                        <Users className="h-5 w-5 text-muted-foreground" />
+                        Miembros Activos
                     </CardTitle>
-                    <CardDescription>
-                        Usuarios con acceso a esta organización.
-                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
@@ -285,7 +183,7 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Usuario</TableHead>
+                                    <TableHead>Miembro</TableHead>
                                     <TableHead>Rol</TableHead>
                                     <TableHead>Fecha de Ingreso</TableHead>
                                     {canManageTeam && <TableHead className="text-right">Acciones</TableHead>}
@@ -303,8 +201,8 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
                                                 <div className="flex items-center gap-3">
                                                     <Avatar className="h-8 w-8">
                                                         <AvatarImage src={member.user?.avatarUrl} />
-                                                        <AvatarFallback className="text-xs">
-                                                            {member.user?.email?.substring(0, 2).toUpperCase()}
+                                                        <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                                            {member.user?.fullName?.substring(0, 2).toUpperCase() || member.user?.email?.substring(0, 2).toUpperCase()}
                                                         </AvatarFallback>
                                                     </Avatar>
                                                     <div>
@@ -320,7 +218,7 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
                                             <TableCell>
                                                 <Badge
                                                     variant="secondary"
-                                                    className={`${roleColors[member.role as keyof typeof roleColors]} text-white`}
+                                                    className={`${roleColors[member.role as keyof typeof roleColors]} text-white font-medium`}
                                                 >
                                                     <Shield className="h-3 w-3 mr-1" />
                                                     {roleLabels[member.role as keyof typeof roleLabels]}
@@ -332,33 +230,29 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
                                             {canManageTeam && (
                                                 <TableCell className="text-right">
                                                     {canRemove ? (
-                                                        <AlertDialog>
-                                                            <AlertDialogTrigger asChild>
-                                                                <Button variant="ghost" size="sm">
-                                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                                                    <span className="sr-only">Abrir menú</span>
+                                                                    <MoreHorizontal className="h-4 w-4" />
                                                                 </Button>
-                                                            </AlertDialogTrigger>
-                                                            <AlertDialogContent>
-                                                                <AlertDialogHeader>
-                                                                    <AlertDialogTitle>¿Eliminar miembro?</AlertDialogTitle>
-                                                                    <AlertDialogDescription>
-                                                                        {member.user?.email} perderá acceso a la organización.
-                                                                        Esta acción no se puede deshacer.
-                                                                    </AlertDialogDescription>
-                                                                </AlertDialogHeader>
-                                                                <AlertDialogFooter>
-                                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                                    <AlertDialogAction
-                                                                        onClick={() => handleRemoveMember(member.id)}
-                                                                        className="bg-red-500 hover:bg-red-600"
-                                                                    >
-                                                                        Eliminar
-                                                                    </AlertDialogAction>
-                                                                </AlertDialogFooter>
-                                                            </AlertDialogContent>
-                                                        </AlertDialog>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                                                                {/* Future update: Change Role */}
+                                                                {/* <DropdownMenuItem>Cambiar Rol</DropdownMenuItem> */}
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    className="text-red-600 focus:text-red-600 cursor-pointer"
+                                                                    onClick={() => setMemberToRemove(member.id)}
+                                                                >
+                                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                                    Eliminar Miembro
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
                                                     ) : (
-                                                        <span className="text-xs text-muted-foreground">—</span>
+                                                        <span className="text-xs text-muted-foreground px-2 py-1">—</span>
                                                     )}
                                                 </TableCell>
                                             )}
@@ -368,7 +262,7 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
                             </TableBody>
                         </Table>
                     ) : (
-                        <p className="text-center py-8 text-muted-foreground">
+                        <p className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-lg bg-muted/20">
                             No hay miembros en el equipo
                         </p>
                     )}
@@ -378,22 +272,19 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
             {/* Pending Invitations - Only visible to ADMIN/OWNER */}
             {canManageTeam && teamData?.invitations?.length > 0 && (
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Clock className="h-5 w-5" />
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-md flex items-center gap-2">
+                            <Clock className="h-5 w-5 text-muted-foreground" />
                             Invitaciones Pendientes
                         </CardTitle>
-                        <CardDescription>
-                            Invitaciones que aún no han sido aceptadas.
-                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Correo</TableHead>
-                                    <TableHead>Rol</TableHead>
-                                    <TableHead>Expira</TableHead>
+                                    <TableHead>Correo Invitado</TableHead>
+                                    <TableHead>Rol Asignado</TableHead>
+                                    <TableHead>Estado</TableHead>
                                     <TableHead className="text-right">Acciones</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -409,61 +300,51 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
                                                 {invitation.email}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline">
+                                                <Badge variant="outline" className="font-medium">
                                                     {roleLabels[invitation.role as keyof typeof roleLabels]}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <div className="flex items-center gap-1 text-sm">
+                                                <div className="flex items-center gap-1 text-sm bg-muted/40 w-fit px-2 py-1 rounded-md">
                                                     {isExpired ? (
                                                         <>
-                                                            <AlertTriangle className="h-4 w-4 text-red-500" />
-                                                            <span className="text-red-500">{expirationText}</span>
+                                                            <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                                                            <span className="text-red-500 font-medium">{expirationText}</span>
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <Clock className="h-4 w-4 text-muted-foreground" />
+                                                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                                                             <span className="text-muted-foreground">{expirationText}</span>
                                                         </>
                                                     )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => copyInviteLink(inviteLink)}
-                                                    >
-                                                        <Copy className="h-4 w-4 mr-1" />
-                                                        Copiar Link
-                                                    </Button>
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button variant="ghost" size="sm">
-                                                                <XCircle className="h-4 w-4 text-red-500" />
-                                                            </Button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>¿Revocar invitación?</AlertDialogTitle>
-                                                                <AlertDialogDescription>
-                                                                    La invitación para {invitation.email} será cancelada
-                                                                    y el enlace dejará de funcionar.
-                                                                </AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                                <AlertDialogAction
-                                                                    onClick={() => handleRevokeInvitation(invitation.id)}
-                                                                    className="bg-red-500 hover:bg-red-600"
-                                                                >
-                                                                    Revocar
-                                                                </AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                                </div>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                                            <span className="sr-only">Abrir menú</span>
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem
+                                                            onClick={() => copyInviteLink(inviteLink)}
+                                                            className="cursor-pointer"
+                                                        >
+                                                            <Copy className="mr-2 h-4 w-4" />
+                                                            Copiar Enlace
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            onClick={() => setInvitationToRevoke(invitation.id)}
+                                                            className="text-red-600 focus:text-red-600 cursor-pointer"
+                                                        >
+                                                            <XCircle className="mr-2 h-4 w-4" />
+                                                            Revocar Invitación
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </TableCell>
                                         </TableRow>
                                     )
@@ -473,6 +354,48 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
                     </CardContent>
                 </Card>
             )}
+
+            {/* Alert Dialogs for dangerous actions */}
+            <AlertDialog open={!!memberToRemove} onOpenChange={(open) => !open && setMemberToRemove(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar miembro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Este usuario perderá el acceso a la organización.
+                            Esta acción no se puede deshacer.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleRemoveMember}
+                            className="bg-red-500 hover:bg-red-600"
+                        >
+                            Eliminar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={!!invitationToRevoke} onOpenChange={(open) => !open && setInvitationToRevoke(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Revocar invitación?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            La invitación será cancelada y el enlace dejará de funcionar inmediatamente.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleRevokeInvitation}
+                            className="bg-red-500 hover:bg-red-600"
+                        >
+                            Revocar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

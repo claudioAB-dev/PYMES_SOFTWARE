@@ -1,140 +1,167 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import { Loader2, CheckCircle2, Mail, AlertTriangle } from "lucide-react"
+import { Loader2, UserPlus, Mail, Shield, ArrowRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
     Card,
     CardContent,
     CardDescription,
     CardHeader,
     CardTitle,
+    CardFooter,
 } from "@/components/ui/card"
-import { acceptInvitation } from "@/app/dashboard/settings/team/actions"
+import { Badge } from "@/components/ui/badge"
+
+import { acceptInvitationSchema, type AcceptInvitationInput } from "@/lib/validators/team"
+import { acceptInvite } from "@/app/dashboard/settings/team/actions"
 
 interface InviteAcceptFormProps {
-    userEmail: string
+    token: string
+    email: string
+    role: string
+    organizationName: string
+    inviterName: string
 }
 
-export function InviteAcceptForm({ userEmail }: InviteAcceptFormProps) {
-    const router = useRouter()
-    const searchParams = useSearchParams()
-    const token = searchParams.get('token')
+const roleLabels: Record<string, string> = {
+    OWNER: "Propietario",
+    ADMIN: "Administrador",
+    MEMBER: "Miembro",
+    ACCOUNTANT: "Contador",
+}
 
+export function InviteAcceptForm({
+    token, email, role, organizationName, inviterName
+}: InviteAcceptFormProps) {
+    const router = useRouter()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    const handleAccept = async () => {
-        if (!token) {
-            setError('Token de invitación no válido')
-            return
-        }
+    const form = useForm<AcceptInvitationInput>({
+        resolver: zodResolver(acceptInvitationSchema),
+        defaultValues: {
+            token,
+            fullName: "",
+            password: "",
+        },
+    })
 
+    const onSubmit = async (data: AcceptInvitationInput) => {
         setIsLoading(true)
         setError(null)
 
-        const result = await acceptInvitation(token)
+        const result = await acceptInvite(data)
 
-        if (result.error) {
+        if (result?.error) {
             setError(result.error)
             toast.error(result.error)
+            setIsLoading(false)
         } else {
-            toast.success('¡Invitación aceptada correctamente!')
+            toast.success('¡Cuenta creada y agregada al equipo!')
             // Redirect to dashboard
             router.push('/dashboard')
+            // Delay disabling loading slightly so redirection happens smoothly
+            setTimeout(() => setIsLoading(false), 2000)
         }
-
-        setIsLoading(false)
-    }
-
-    if (!token) {
-        return (
-            <Card className="w-full max-w-md">
-                <CardHeader>
-                    <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-6 w-6 text-red-500" />
-                        <CardTitle>Invitación Inválida</CardTitle>
-                    </div>
-                    <CardDescription>
-                        El enlace de invitación no es válido o ha expirado.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => router.push('/dashboard')}
-                    >
-                        Ir al Dashboard
-                    </Button>
-                </CardContent>
-            </Card>
-        )
     }
 
     return (
-        <Card className="w-full max-w-md">
-            <CardHeader>
-                <div className="flex items-center gap-2">
-                    <Mail className="h-6 w-6 text-blue-500" />
-                    <CardTitle>Invitación al Equipo</CardTitle>
+        <Card className="w-full max-w-md shadow-xl border-t-4 border-t-primary">
+            <CardHeader className="text-center space-y-4">
+                <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit">
+                    <UserPlus className="h-8 w-8 text-primary" />
                 </div>
-                <CardDescription>
-                    Has sido invitado a unirte a una organización
-                </CardDescription>
+                <div className="space-y-2">
+                    <CardTitle className="text-2xl font-bold">Únete al equipo</CardTitle>
+                    <CardDescription className="text-base text-muted-foreground">
+                        <span className="font-semibold text-foreground">{inviterName}</span> te ha invitado a unirte a <span className="font-semibold text-foreground">{organizationName}</span>.
+                    </CardDescription>
+                </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-900">
-                        <span className="font-medium">Tu correo:</span> {userEmail}
-                    </p>
+            <CardContent>
+                <div className="bg-muted/50 p-4 rounded-lg mb-6 flex flex-col gap-3 border">
+                    <div className="flex items-center gap-2 text-sm">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground font-medium">Asignado a:</span>
+                        <span className="font-semibold truncate">{email}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                        <Shield className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground font-medium">Tu rol será:</span>
+                        <Badge variant="secondary">{roleLabels[role] || role}</Badge>
+                    </div>
                 </div>
 
-                {error && (
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                        <div className="flex items-start gap-2">
-                            <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
-                            <p className="text-sm text-red-900">{error}</p>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    {error && (
+                        <div className="p-3 bg-red-50 text-red-600 text-sm rounded-md border border-red-200">
+                            {error}
                         </div>
-                    </div>
-                )}
+                    )}
 
-                <div className="flex flex-col gap-2">
+                    <div className="space-y-2">
+                        <Label htmlFor="fullName" className="text-sm font-medium">Tu nombre completo</Label>
+                        <Input
+                            id="fullName"
+                            placeholder="Ej. Juan Pérez"
+                            disabled={isLoading}
+                            {...form.register("fullName")}
+                        />
+                        {form.formState.errors.fullName && (
+                            <p className="text-xs text-red-500">
+                                {form.formState.errors.fullName.message}
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="password" className="text-sm font-medium">Crea una contraseña</Label>
+                        <Input
+                            id="password"
+                            type="password"
+                            placeholder="Mínimo 6 caracteres"
+                            disabled={isLoading}
+                            {...form.register("password")}
+                        />
+                        {form.formState.errors.password && (
+                            <p className="text-xs text-red-500">
+                                {form.formState.errors.password.message}
+                            </p>
+                        )}
+                    </div>
+
                     <Button
-                        onClick={handleAccept}
+                        type="submit"
                         disabled={isLoading}
-                        className="w-full"
+                        className="w-full mt-4 h-11"
                     >
                         {isLoading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Aceptando...
+                                Creando tu cuenta...
                             </>
                         ) : (
                             <>
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Aceptar Invitación
+                                Aceptar Invitación y Entrar
+                                <ArrowRight className="ml-2 h-4 w-4" />
                             </>
                         )}
                     </Button>
-
-                    <Button
-                        variant="outline"
-                        onClick={() => router.push('/dashboard')}
-                        disabled={isLoading}
-                    >
-                        Cancelar
-                    </Button>
-                </div>
-
-                <p className="text-xs text-center text-muted-foreground">
-                    Al aceptar, tendrás acceso a los datos de la organización según tu rol asignado.
-                </p>
+                </form>
             </CardContent>
+            <CardFooter className="flex justify-center border-t p-4 bg-muted/10 mt-2">
+                <p className="text-xs text-center text-muted-foreground w-full">
+                    Al aceptar, confirmarás la creación de tu cuenta y tendrás acceso al sistema de acuerdo a los permisos de tu rol asignado.
+                </p>
+            </CardFooter>
         </Card>
     )
 }
-

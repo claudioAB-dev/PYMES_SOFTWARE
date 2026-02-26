@@ -20,6 +20,8 @@ export const revokeInvitationSchema = z.object({
 
 export const acceptInvitationSchema = z.object({
     token: z.string().min(1, "Token de invitación requerido"),
+    fullName: z.string().min(2, "Ingresa tu nombre completo"),
+    password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
 });
 
 // Future use: update member role
