@@ -8,9 +8,6 @@ export async function updateSession(request: NextRequest) {
         },
     })
 
-    console.log("Supabase URL inside Edge:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log("Supabase key exists:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -23,9 +20,7 @@ export async function updateSession(request: NextRequest) {
                     cookiesToSet.forEach(({ name, value, options }: { name: string, value: string, options: CookieOptions }) =>
                         request.cookies.set(name, value)
                     )
-                    response = NextResponse.next({
-                        request,
-                    })
+                    response = NextResponse.next({ request })
                     cookiesToSet.forEach(({ name, value, options }: { name: string, value: string, options: CookieOptions }) =>
                         response.cookies.set(name, value, options)
                     )
@@ -34,15 +29,19 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
+    const pathname = request.nextUrl.pathname
 
-    if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
+    // Protect /dashboard: unauthenticated users go to /login
+    if (pathname.startsWith('/dashboard') && !user) {
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    if (request.nextUrl.pathname === '/login' && user) {
+    // Redirect authenticated users away from /login and /register only.
+    // /invite is intentionally excluded: authenticated users may need to accept
+    // an invite link even when they already have a session.
+    const isAuthOnlyPage = pathname === '/login' || pathname === '/register'
+    if (isAuthOnlyPage && user) {
         return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 

@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { getAdminAuthClient } from '@/lib/supabase/admin'
 import { db } from '@/db'
 import { invitations, memberships, users } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -339,18 +340,17 @@ export async function acceptInvite(input: AcceptInvitationInput) {
         })
 
         if (existingUser) {
-            return { error: 'El correo ya tiene una cuenta. Por favor inicia sesión primero.' }
+            return { error: 'EXISTING_ACCOUNT: El correo ya tiene una cuenta. Usa la opción de iniciar sesión.' }
         }
 
-        // Sign up with Supabase
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        // Use Admin SDK to create the user with email pre-confirmed.
+        // The invite token IS the verification — no confirmation email should be sent.
+        const adminAuth = getAdminAuthClient()
+        const { data: authData, error: authError } = await adminAuth.admin.createUser({
             email: invitation.email,
             password,
-            options: {
-                data: {
-                    full_name: fullName,
-                }
-            }
+            email_confirm: true,          // skip confirmation email entirely
+            user_metadata: { full_name: fullName },
         })
 
         if (authError) {
@@ -393,5 +393,72 @@ export async function acceptInvite(input: AcceptInvitationInput) {
     } catch (error) {
         console.error('Error accepting invitation:', error)
         return { error: 'Error al aceptar la invitación' }
+    }
+}
+
+// Accept invitation for a user who ALREADY has an account
+export async function acceptInviteExistingUser(input: {
+    token: string
+    email: string
+    password: string
+}) {
+    const supabase = await createClient()
+
+    try {
+        // Find and validate the invitation
+        const invitation = await db.query.invitations.findFirst({
+            where: eq(invitations.token, input.token)
+        })
+
+        if (!invitation) return { error: 'Invitación no encontrada' }
+        if (invitation.status !== 'PENDING') return { error: 'Esta invitación ya no es válida' }
+        if (new Date() > new Date(invitation.expiresAt)) {
+            await db.update(invitations)
+                .set({ status: 'EXPIRED' })
+                .where(eq(invitations.id, invitation.id))
+            return { error: 'Esta invitación ha expirado' }
+        }
+        if (invitation.email.toLowerCase() !== input.email.toLowerCase()) {
+            return { error: 'El correo no coincide con la invitación' }
+        }
+
+        // Sign in with existing credentials
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email: input.email,
+            password: input.password,
+        })
+
+        if (authError || !authData.user) {
+            return { error: 'Credenciales inválidas. Verifica tu correo y contraseña.' }
+        }
+
+        // Check if already a member of this org
+        const existingMembership = await db.query.memberships.findFirst({
+            where: and(
+                eq(memberships.userId, authData.user.id),
+                eq(memberships.organizationId, invitation.organizationId)
+            )
+        })
+        if (existingMembership) {
+            return { error: 'Ya eres miembro de esta organización.' }
+        }
+
+        // Add membership and mark invitation accepted
+        await db.transaction(async (tx) => {
+            await tx.insert(memberships).values({
+                userId: authData.user!.id,
+                organizationId: invitation.organizationId,
+                role: invitation.role,
+            })
+            await tx.update(invitations)
+                .set({ status: 'ACCEPTED' })
+                .where(eq(invitations.id, invitation.id))
+        })
+
+        revalidatePath('/dashboard')
+        return { success: true }
+    } catch (error) {
+        console.error('Error accepting invite (existing user):', error)
+        return { error: 'Error al procesar la invitación' }
     }
 }
