@@ -6,8 +6,54 @@ import { createOrganizationSchema, type CreateOrganizationInput } from "@/lib/va
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
+import { eq } from "drizzle-orm";
 
+// ─── Slugify helper ────────────────────────────────────────────────────────────
+// Converts any company name into a URL-safe slug.
+// Example: "Distribuidora León S.A. de C.V." → "distribuidora-leon-sa-de-cv"
+function slugify(text: string): string {
+    return text
+        .normalize("NFD")                          // decompose accented chars (é → e +  ́)
+        .replace(/[\u0300-\u036f]/g, "")           // strip diacritic marks
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, "")             // remove remaining special chars
+        .replace(/[\s_]+/g, "-")                   // spaces/underscores → hyphens
+        .replace(/-{2,}/g, "-")                    // collapse multiple hyphens
+        .replace(/^-+|-+$/g, "");                  // trim leading/trailing hyphens
+}
+
+// Generates a random 4-char alphanumeric suffix for slug collision handling
+function randomSuffix(): string {
+    return Math.random().toString(36).slice(2, 6);
+}
+
+// Finds a unique slug, appending a suffix if the base slug is already taken
+async function findUniqueSlug(base: string): Promise<string> {
+    const exists = await db
+        .select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.slug, base))
+        .limit(1);
+
+    if (exists.length === 0) return base;
+
+    // Try up to 5 suffixed variants before giving up
+    for (let i = 0; i < 5; i++) {
+        const candidate = `${base}-${randomSuffix()}`;
+        const conflict = await db
+            .select({ id: organizations.id })
+            .from(organizations)
+            .where(eq(organizations.slug, candidate))
+            .limit(1);
+        if (conflict.length === 0) return candidate;
+    }
+
+    // Fallback: timestamp-based suffix (practically guaranteed unique)
+    return `${base}-${Date.now().toString(36)}`;
+}
+
+// ─── Main action ───────────────────────────────────────────────────────────────
 export async function createOrganizationAction(input: CreateOrganizationInput) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -21,16 +67,23 @@ export async function createOrganizationAction(input: CreateOrganizationInput) {
         return { error: "Datos inválidos.", details: validation.error.flatten() };
     }
 
-    const { name, slug, rfc } = validation.data;
+    const { name, rfc } = validation.data;
+
+    // Auto-generate a unique slug from the company name
+    const baseSlug = slugify(name) || `org-${randomSuffix()}`;
+    const slug = await findUniqueSlug(baseSlug);
 
     try {
         await db.transaction(async (tx) => {
             // 1. Create Organization
-            const [newOrg] = await tx.insert(organizations).values({
-                name,
-                slug,
-                taxId: rfc || null, // Convert empty string to null if needed, though schema allows string
-            }).returning({ id: organizations.id });
+            const [newOrg] = await tx
+                .insert(organizations)
+                .values({
+                    name,
+                    slug,
+                    taxId: rfc || null,
+                })
+                .returning({ id: organizations.id });
 
             if (!newOrg) throw new Error("Error al crear la organización.");
 
@@ -38,17 +91,15 @@ export async function createOrganizationAction(input: CreateOrganizationInput) {
             await tx.insert(memberships).values({
                 userId: user.id,
                 organizationId: newOrg.id,
-                role: 'OWNER',
+                role: "OWNER",
             });
         });
-    } catch (err: any) {
-        // Build error message
-        const message = err.message || "Error desconocido al crear la organización.";
+    } catch (err: unknown) {
+        const message =
+            err instanceof Error ? err.message : "Error desconocido al crear la organización.";
 
-        // Check for specific DB errors (e.g., unique constraint on slug/taxId if enforced)
         if (message.includes("violates unique constraint")) {
-            if (message.includes("slug")) return { error: "Ese slug ya está en uso." };
-            if (message.includes("tax_id")) return { error: "Ese RFC ya está registrado." };
+            if (message.includes("tax_id")) return { error: "Ese RFC ya está registrado en otra organización." };
         }
 
         return { error: message };
