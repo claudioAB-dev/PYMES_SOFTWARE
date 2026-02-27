@@ -3,41 +3,53 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { z } from 'zod'
 
-export async function login(formData: FormData) {
+const authSchema = z.object({
+    email: z.string().email('Correo electrónico inválido'),
+    password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
+})
+
+export async function login(data: z.infer<typeof authSchema>) {
     const supabase = await createClient()
 
-    const data = {
-        email: formData.get('email') as string,
-        password: formData.get('password') as string,
+    const parsed = authSchema.safeParse(data)
+    if (!parsed.success) {
+        return { error: 'Datos inválidos' }
     }
 
-    const { error } = await supabase.auth.signInWithPassword(data)
+    const { error } = await supabase.auth.signInWithPassword({
+        email: parsed.data.email,
+        password: parsed.data.password,
+    })
 
     if (error) {
-        redirect('/login?error=Invalid credentials')
+        return { error: 'Credenciales inválidas o correo no registrado' }
     }
 
     revalidatePath('/', 'layout')
     redirect('/dashboard')
 }
 
-export async function signup(formData: FormData) {
+export async function signup(data: z.infer<typeof authSchema>) {
     const supabase = await createClient()
 
-    const data = {
-        email: formData.get('email') as string,
-        password: formData.get('password') as string,
+    const parsed = authSchema.safeParse(data)
+    if (!parsed.success) {
+        return { error: 'Datos inválidos' }
     }
 
-    const { error } = await supabase.auth.signUp(data)
+    const { error } = await supabase.auth.signUp({
+        email: parsed.data.email,
+        password: parsed.data.password,
+    })
 
     if (error) {
-        redirect('/login?error=Could not authenticate user')
+        return { error: error.message || 'Error al crear la cuenta' }
     }
 
     revalidatePath('/', 'layout')
-    redirect('/dashboard')
+    redirect('/onboarding')
 }
 
 export async function signOutAction() {

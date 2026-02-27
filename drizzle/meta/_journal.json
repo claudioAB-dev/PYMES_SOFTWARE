@@ -36,6 +36,13 @@
       "when": 1772064469910,
       "tag": "0004_little_electro",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772149174516,
+      "tag": "0005_volatile_spacker_dave",
+      "breakpoints": true
     }
   ]
 }

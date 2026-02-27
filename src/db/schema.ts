@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, decimal, pgEnum, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, decimal, pgEnum, boolean, integer, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // --- ENUMS ---
@@ -50,6 +50,11 @@ export const memberships = pgTable("memberships", {
     organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
     role: roleEnum("role").default('MEMBER').notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+    return {
+        userIdIdx: index("idx_memberships_user_id").on(table.userId),
+        orgIdIdx: index("idx_memberships_organization_id").on(table.organizationId),
+    };
 });
 
 // 4. Entities (Clients/Suppliers)
@@ -161,6 +166,10 @@ export const employees = pgTable("employees", {
     joinedAt: timestamp("joined_at").defaultNow().notNull(), // Date they joined
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+    return {
+        orgIdIdx: index("idx_employees_organization_id").on(table.organizationId),
+    };
 });
 
 // 12. Payrolls (HR)
