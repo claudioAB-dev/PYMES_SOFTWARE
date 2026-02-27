@@ -1,7 +1,7 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { signOutAction } from "@/app/login/actions";
+import { signOutAction } from "@/app/(auth)/actions";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { useState, useEffect } from "react";

@@ -5,15 +5,20 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
-const authSchema = z.object({
+const loginSchema = z.object({
     email: z.string().email('Correo electrónico inválido'),
     password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
 })
 
-export async function login(data: z.infer<typeof authSchema>) {
+const signupSchema = z.object({
+    email: z.string().email('Correo electrónico inválido'),
+    password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
+})
+
+export async function login(data: z.infer<typeof loginSchema>) {
     const supabase = await createClient()
 
-    const parsed = authSchema.safeParse(data)
+    const parsed = loginSchema.safeParse(data)
     if (!parsed.success) {
         return { error: 'Datos inválidos' }
     }
@@ -31,10 +36,10 @@ export async function login(data: z.infer<typeof authSchema>) {
     redirect('/dashboard')
 }
 
-export async function signup(data: z.infer<typeof authSchema>) {
+export async function signup(data: z.infer<typeof signupSchema>) {
     const supabase = await createClient()
 
-    const parsed = authSchema.safeParse(data)
+    const parsed = signupSchema.safeParse(data)
     if (!parsed.success) {
         return { error: 'Datos inválidos' }
     }
@@ -49,7 +54,7 @@ export async function signup(data: z.infer<typeof authSchema>) {
     }
 
     revalidatePath('/', 'layout')
-    redirect('/onboarding')
+    return { success: true }
 }
 
 export async function signOutAction() {
