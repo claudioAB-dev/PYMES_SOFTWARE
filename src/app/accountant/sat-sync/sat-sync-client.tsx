@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
-import { requestMassiveSync, getSatRequests } from "./actions";
+import { requestMassiveSync, getSatRequests, requestMockMassiveSync } from "./actions";
 
 export type SatRequest = {
     id: string;
@@ -157,23 +157,52 @@ export function SatSyncClient({ organizationId }: SatSyncClientProps) {
                             </Select>
                         </div>
 
-                        <Button
-                            onClick={onSubmit}
-                            disabled={isSubmitting || !month || !year}
-                            className="w-full sm:w-auto transition-all"
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    Encolando...
-                                </>
-                            ) : (
-                                <>
-                                    <Download className="w-4 h-4 mr-2" />
-                                    Solicitar Descarga Masiva
-                                </>
+                        <div className="flex gap-2 w-full sm:w-auto mt-4 sm:mt-0">
+                            <Button
+                                onClick={onSubmit}
+                                disabled={isSubmitting || !month || !year}
+                                className="flex-1 sm:flex-none transition-all"
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Encolando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Download className="w-4 h-4 mr-2" />
+                                        Solicitar Descarga
+                                    </>
+                                )}
+                            </Button>
+
+                            {process.env.NODE_ENV === 'development' && (
+                                <Button
+                                    onClick={async () => {
+                                        setIsSubmitting(true);
+                                        try {
+                                            const result = await requestMockMassiveSync();
+                                            if (result.success) {
+                                                toast.success(result.message || "Sandbox encolado exitosamente.");
+                                                await fetchRequests();
+                                            } else {
+                                                toast.error(result.error || "Error al solicitar el Sandbox.");
+                                            }
+                                        } catch (error) {
+                                            toast.error("Ocurrió un error inesperado al encolar el Sandbox.");
+                                        } finally {
+                                            setIsSubmitting(false);
+                                        }
+                                    }}
+                                    disabled={isSubmitting}
+                                    variant="outline"
+                                    className="flex-1 sm:flex-none transition-all whitespace-nowrap"
+                                >
+                                    <RefreshCw className="w-4 h-4 mr-2" />
+                                    Simular (Sandbox)
+                                </Button>
                             )}
-                        </Button>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

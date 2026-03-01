@@ -14,6 +14,7 @@ type SatSyncRequestedEvent = {
     data: {
         satRequestId: string;
         orgId: string;
+        isMock?: boolean;
     };
 };
 

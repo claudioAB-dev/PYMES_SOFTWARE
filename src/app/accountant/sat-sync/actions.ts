@@ -81,6 +81,45 @@ export async function requestMassiveSync(month: number, year: number) {
     }
 }
 
+export async function requestMockMassiveSync() {
+    try {
+        const organizationId = await getActiveOrgId();
+
+        // We use the current month for mock
+        const now = new Date();
+        const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+        // Insert the pending request
+        const [insertedRequest] = await db.insert(satRequests).values({
+            organizationId,
+            status: "PENDING",
+            periodStart,
+            periodEnd,
+        }).returning();
+
+        // Disparar job de Inngest indicando la solicitud MOCK
+        await inngest.send({
+            name: "sat.sync.requested",
+            data: {
+                satRequestId: insertedRequest.id,
+                orgId: organizationId,
+                isMock: true
+            }
+        });
+
+        revalidatePath("/accountant/sat-sync");
+
+        return { success: true, message: "Sandbox de descarga masiva iniciado con éxito." };
+    } catch (error) {
+        console.error("Error in requestMockMassiveSync:", error);
+        if (error instanceof Error) {
+            return { success: false, error: error.message };
+        }
+        return { success: false, error: "Error desconocido al solicitar el sandbox." };
+    }
+}
+
 export async function getSatRequests(organizationId: string) {
     try {
         const requests = await db.select()

@@ -27,14 +27,18 @@ export async function getReconciliationData(month: number, year: number) {
         const periodStart = new Date(year, month - 1, 1);
         const periodEnd = new Date(year, month, 0, 23, 59, 59, 999);
 
-        // Fetch SAT Documents
+        // Fetch SAT Documents (temporalmente sin filtro de fechas)
         const satDocs = await db.query.fiscalDocuments.findMany({
-            where: and(
-                eq(fiscalDocuments.organizationId, orgId),
-                gte(fiscalDocuments.issueDate, periodStart),
-                lte(fiscalDocuments.issueDate, periodEnd)
-            )
+            where: eq(fiscalDocuments.organizationId, orgId)
         });
+
+        console.log("================ DIAGNÓSTICO DE CONCILIACIÓN ================");
+        console.log("Org activa (Contexto Inngest - Request):", orgId);
+        console.log("Periodo Solicitado:", { periodStart, periodEnd });
+        console.log("Documentos (SAT) encontrados (Sin filtro de fecha):", satDocs.length);
+        if (satDocs.length > 0) {
+            console.log("Ejemplo de fecha XML parseada:", satDocs[0].issueDate, typeof satDocs[0].issueDate);
+        }
 
         // Fetch ERP Orders
         const erpOrders = await db.query.orders.findMany({
