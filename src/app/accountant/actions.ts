@@ -25,15 +25,38 @@ export async function generateClientInviteLink() {
     return { success: true, url: inviteUrl };
 }
 
+import { db } from "@/db";
+import { memberships } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
 export async function setActiveOrganization(organizationId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("No estás autenticado.");
+    }
+
+    // Verify accountant membership in the database
+    const membership = await db.query.memberships.findFirst({
+        where: and(
+            eq(memberships.userId, user.id),
+            eq(memberships.organizationId, organizationId),
+            eq(memberships.role, 'ACCOUNTANT')
+        )
+    });
+
+    if (!membership) {
+        throw new Error("No tienes acceso a esta empresa como contador.");
+    }
+
     const cookieStore = await cookies();
 
-    // Set cookie to expire in 30 days
+    // Set cookie to expire in 7 days
     const expires = new Date();
-    expires.setDate(expires.getDate() + 30);
+    expires.setDate(expires.getDate() + 7);
 
     cookieStore.set('axioma_active_org', organizationId, {
         expires,
@@ -43,5 +66,5 @@ export async function setActiveOrganization(organizationId: string) {
         path: '/',
     });
 
-    revalidatePath('/', 'layout');
+    revalidatePath('/accountant', 'layout');
 }
