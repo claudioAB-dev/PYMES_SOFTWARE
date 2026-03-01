@@ -4,7 +4,7 @@ import { formatCurrency } from "@/lib/utils";
 
 interface KPICardProps {
     title: string;
-    value: number;
+    value: number | string;
     icon: LucideIcon;
     description?: string;
     isCurrency?: boolean;
@@ -21,7 +21,7 @@ export function KPICard({ title, value, icon: Icon, description, isCurrency = tr
             </CardHeader>
             <CardContent>
                 <div className="text-2xl font-bold" suppressHydrationWarning>
-                    {isCurrency ? formatCurrency(value) : value}
+                    {isCurrency && typeof value === 'number' ? formatCurrency(value) : value}
                 </div>
                 {description && (
                     <p className="text-xs text-muted-foreground">

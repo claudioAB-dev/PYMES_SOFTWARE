@@ -1,114 +1,150 @@
-import { createClient } from "@/lib/supabase/server";
+import { getActiveOrgId, validateAccountantAccess } from "@/lib/accountant/context";
 import { db } from "@/db";
-import { memberships } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { Building2, ArrowRight, Activity, Users } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { InviteClientDialog } from "./components/invite-client-dialog";
+import { fiscalDocuments, organizations } from "@/db/schema";
+import { eq, and, sql, desc } from "drizzle-orm";
+import { Badge } from "@/components/ui/badge";
+import { KPICard } from "@/components/dashboard/KPICard";
+import { TrendingUp, TrendingDown, Landmark, CalendarClock, Building2 } from "lucide-react";
 
 export default async function AccountantDashboard() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    let organizationId: string;
+    try {
+        organizationId = await getActiveOrgId();
+        await validateAccountantAccess(organizationId);
+    } catch (error) {
+        return (
+            <div className="p-8 text-center" suppressHydrationWarning>
+                <div className="bg-white border rounded-2xl p-12 max-w-2xl mx-auto mt-12 shadow-sm">
+                    <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-medium text-slate-900 mb-2">Acceso Denegado</h3>
+                    <p className="text-slate-500">
+                        No tienes acceso a ninguna empresa o debes iniciar sesión nuevamente.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
-    if (!user) return null;
-
-    const managedCompanies = await db.query.memberships.findMany({
-        where: and(
-            eq(memberships.userId, user.id),
-            eq(memberships.role, 'ACCOUNTANT')
-        ),
-        with: {
-            organization: true,
-        },
+    const org = await db.query.organizations.findFirst({
+        where: eq(organizations.id, organizationId)
     });
+
+    if (!org) {
+        return (
+            <div className="p-8 text-center text-muted-foreground" suppressHydrationWarning>
+                Empresa no encontrada.
+            </div>
+        );
+    }
+
+    // Current month boundaries
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    // Queries directly via Drizzle
+    const data = await db.select({
+        type: fiscalDocuments.type,
+        totalAmount: sql<number>`sum(${fiscalDocuments.total})`,
+        totalTax: sql<number>`sum(${fiscalDocuments.tax})`
+    }).from(fiscalDocuments)
+        .where(
+            and(
+                eq(fiscalDocuments.organizationId, organizationId),
+                sql`${fiscalDocuments.issueDate} >= ${startOfMonth.toISOString()}`,
+                sql`${fiscalDocuments.issueDate} <= ${endOfMonth.toISOString()}`
+            )
+        )
+        .groupBy(fiscalDocuments.type);
+
+    let ingresos = 0;
+    let egresos = 0;
+
+    data.forEach(row => {
+        if (row.type === 'I') {
+            ingresos += Number(row.totalAmount || 0);
+        }
+        if (row.type === 'E') {
+            egresos += Number(row.totalAmount || 0);
+        }
+    });
+
+    // Estimando el 16% de la diferencia entre ingresos y egresos
+    const ivaEstimado = (ingresos - egresos) * 0.16;
+
+    // Latest SAT synchronization date
+    const latestDoc = await db.query.fiscalDocuments.findFirst({
+        where: eq(fiscalDocuments.organizationId, organizationId),
+        orderBy: [desc(fiscalDocuments.createdAt)]
+    });
+
+    let syncStatus = "Sin sincronizar";
+    if (latestDoc?.createdAt) {
+        syncStatus = new Intl.DateTimeFormat("es-MX", {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(latestDoc.createdAt);
+    }
+
+    const uncapitalizedMonth = new Intl.DateTimeFormat('es-MX', { month: 'long' }).format(startOfMonth);
+    const currentMonthLabel = uncapitalizedMonth.charAt(0).toUpperCase() + uncapitalizedMonth.slice(1);
 
     return (
         <div className="space-y-8 max-w-6xl mx-auto" suppressHydrationWarning>
-            {/* Header Section */}
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden" suppressHydrationWarning>
-                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50"></div>
-
-                <div className="relative">
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Mis Empresas</h1>
-                    <p className="text-slate-500 mt-2 text-lg max-w-xl">
-                        Bienvenido a tu centro de mando. Aquí puedes gestionar la información contable y financiera de todos tus clientes desde un solo lugar.
-                    </p>
-                </div>
-
-                <div className="flex gap-4 relative">
-                    <div className="bg-indigo-50 px-4 py-3 rounded-xl border border-indigo-100 min-w-32 hidden sm:block">
-                        <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-1">Empresas</p>
-                        <p className="text-2xl font-bold text-slate-900">{managedCompanies.length}</p>
+            {/* Identity Banner */}
+            <div className="flex items-center justify-between bg-white px-6 py-4 rounded-xl shadow-sm border border-slate-200">
+                <div className="flex items-center gap-3">
+                    <div className="bg-indigo-100 p-2 rounded-lg">
+                        <Building2 className="w-5 h-5 text-indigo-700" />
                     </div>
-                    {/* Reverse Invitation Button */}
-                    <div className="flex items-center">
-                        <InviteClientDialog />
+                    <div>
+                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Operando como</p>
+                        <h2 className="text-lg font-bold text-slate-900">{org.name}</h2>
                     </div>
                 </div>
+                <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm px-3 py-1 text-sm font-semibold">
+                    Sesión Activa
+                </Badge>
             </div>
 
-            {/* Grid Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" suppressHydrationWarning>
-                {managedCompanies.map((membership) => (
-                    <div
-                        key={membership.organizationId}
-                        className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all duration-300 flex flex-col group overflow-hidden"
-                        suppressHydrationWarning
-                    >
-                        <div className="p-6 flex-1" suppressHydrationWarning>
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-100 flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
-                                    <Building2 className="w-7 h-7 text-indigo-600" />
-                                </div>
-                                <span className="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full">
-                                    Activo
-                                </span>
-                            </div>
-
-                            <div className="mt-4">
-                                <h3 className="font-bold text-xl text-slate-900 truncate mb-1 group-hover:text-indigo-600 transition-colors">
-                                    {membership.organization.name}
-                                </h3>
-                                <div className="flex flex-col gap-1 mt-3">
-                                    <p className="text-sm text-slate-500 flex items-center gap-2">
-                                        <span className="w-4 text-center">📄</span> RFC: {membership.organization.taxId || "No registrado"}
-                                    </p>
-                                    <p className="text-sm text-slate-500 flex items-center gap-2">
-                                        <Activity className="w-4 h-4 text-slate-400" /> Nivel de acceso: Total
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-slate-50 p-4 border-t flex justify-between items-center group-hover:bg-indigo-50/30 transition-colors">
-                            <div className="flex items-center gap-2">
-                                <Users className="w-4 h-4 text-slate-400" />
-                                <span className="text-xs text-slate-500">Rol: Contador</span>
-                            </div>
-
-                            {/* We point this to their specific dashboard with a query param or cookie in the future. For now, it just redirects to the main dashboard. The app should later handle the org context. */}
-                            <Button asChild size="sm" className="bg-white text-indigo-600 hover:text-white hover:bg-indigo-600 border border-indigo-200 hover:border-transparent transition-all shadow-sm">
-                                <Link href={`/dashboard`}>
-                                    Acceder <ArrowRight className="w-4 h-4 ml-1.5" />
-                                </Link>
-                            </Button>
-                        </div>
-                    </div>
-                ))}
+            {/* Dashboard Header */}
+            <div>
+                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Dashboard General</h1>
+                <p className="text-muted-foreground mt-1 text-lg">
+                    Resumen financiero y fiscal del mes de {currentMonthLabel}.
+                </p>
             </div>
 
-            {managedCompanies.length === 0 && (
-                <div className="text-center py-20 bg-white border rounded-2xl border-dashed border-slate-300 max-w-2xl mx-auto mt-12">
-                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Building2 className="w-8 h-8 text-slate-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-slate-900 mb-2">Sin empresas asignadas</h3>
-                    <p className="text-slate-500 max-w-sm mx-auto">
-                        Actualmente no tienes permisos de Contador en ninguna empresa. Solicita a tus clientes que te envíen una invitación.
-                    </p>
-                </div>
-            )}
+            {/* KPI Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <KPICard
+                    title="IVA Estimado a Pagar"
+                    value={Math.max(ivaEstimado, 0)} // Optional max 0 to not show negative VAT as "to pay", actually negative means balance in favor, so we let it be as they requested
+                    icon={Landmark}
+                    description={`Calculado al 16% de res. (${currentMonthLabel})`}
+                    isCurrency={true}
+                />
+
+                <KPICard
+                    title="Ingresos Totales (CFDI)"
+                    value={ingresos}
+                    icon={TrendingUp}
+                    description={`Suma comprobantes ingreso (${currentMonthLabel})`}
+                    isCurrency={true}
+                />
+
+                <KPICard
+                    title="Estatus de Sincronización"
+                    value={syncStatus}
+                    icon={CalendarClock}
+                    description="Última descarga SAT"
+                    isCurrency={false}
+                />
+            </div>
+
         </div>
     );
 }

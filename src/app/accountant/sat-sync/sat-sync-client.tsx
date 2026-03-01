@@ -84,7 +84,7 @@ export function SatSyncClient({ organizationId }: SatSyncClientProps) {
 
         setIsSubmitting(true);
         try {
-            const result = await requestMassiveSync(parseInt(month), parseInt(year), organizationId);
+            const result = await requestMassiveSync(parseInt(month), parseInt(year));
             if (result.success) {
                 toast.success(result.message || "Solicitud encolada exitosamente.");
                 // Immediately fetch to show the new pending request

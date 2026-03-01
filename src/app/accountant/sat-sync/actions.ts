@@ -40,19 +40,33 @@ export async function uploadManualXML(formData: FormData, organizationId: string
     }
 }
 
-export async function requestMassiveSync(month: number, year: number, organizationId: string) {
+import { getActiveOrgId } from "@/lib/accountant/context";
+import { inngest } from "@/lib/inngest/client";
+
+export async function requestMassiveSync(month: number, year: number) {
     try {
+        const organizationId = await getActiveOrgId();
+
         // Generate start and end dates for the selected month
         // month is 1-indexed (1=January), so month - 1 for Date constructor
         const periodStart = new Date(year, month - 1, 1);
         const periodEnd = new Date(year, month, 0); // Last day of the month
 
         // Insert the pending request
-        await db.insert(satRequests).values({
+        const [insertedRequest] = await db.insert(satRequests).values({
             organizationId,
             status: "PENDING",
             periodStart,
             periodEnd,
+        }).returning();
+
+        // Disparar job de Inngest indicando la solicitud
+        await inngest.send({
+            name: "sat.sync.requested",
+            data: {
+                satRequestId: insertedRequest.id,
+                orgId: organizationId,
+            }
         });
 
         revalidatePath("/accountant/sat-sync");

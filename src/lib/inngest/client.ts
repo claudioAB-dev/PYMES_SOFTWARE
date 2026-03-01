@@ -9,8 +9,17 @@ type SatDownloadCompletedEvent = {
     };
 };
 
+// Evento disparado para solicitar la sincronización
+type SatSyncRequestedEvent = {
+    data: {
+        satRequestId: string;
+        orgId: string;
+    };
+};
+
 type Events = {
     "sat/download.completed": SatDownloadCompletedEvent;
+    "sat.sync.requested": SatSyncRequestedEvent;
 };
 
 // Inicializamos el cliente de Inngest con el ID del proyecto y los esquemas de eventos

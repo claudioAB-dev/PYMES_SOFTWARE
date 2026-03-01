@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Settings } from "lucide-react";
+import { LayoutDashboard, Users, Server, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function AccountantSidebar() {
@@ -16,7 +16,24 @@ export function AccountantSidebar() {
             href: "/accountant",
             color: "text-sky-500",
         },
-        // We can add more options if needed
+        {
+            label: "Gestión de Cartera",
+            icon: Users,
+            href: "/accountant/organizations",
+            color: "text-indigo-500",
+        },
+        {
+            label: "Sincronización SAT",
+            icon: Server,
+            href: "/accountant/sat-sync",
+            color: "text-emerald-500",
+        },
+        {
+            label: "Conciliación Fiscal",
+            icon: Scale,
+            href: "/accountant/reconciliation",
+            color: "text-amber-500",
+        },
     ];
 
     return (

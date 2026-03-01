@@ -2,83 +2,42 @@ import { Metadata } from "next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CircleDollarSign, TrendingDown, TrendingUp, Building2, Download } from "lucide-react";
 import { InvoicesTable, FiscalDocument } from "./invoices-table";
+import { ExportButton } from "./export-button";
 
 export const metadata: Metadata = {
     title: "Bóveda Fiscal | Axioma",
     description: "Bóveda Fiscal para consulta de CFDI sincronizados del SAT",
 };
 
-// Datos simulados para demostración visual
-// En un entorno real, estos vendrían de `db.select().from(fiscalDocuments).where(...)`
-const mockDocuments: FiscalDocument[] = [
-    {
-        id: "uuid-1",
-        uuid: "9D2B8A04-1234-4567-890A-BCDEF0123456",
-        issuerRfc: "SAOS890812F32",
-        receiverRfc: "AXI123456XYZ",
-        issueDate: new Date("2024-03-15T10:30:00Z"),
-        type: "I",
-        subtotal: 15000.0,
-        tax: 2400.0,
-        total: 17400.0,
-    },
-    {
-        id: "uuid-2",
-        uuid: "1A2B3C4D-5E6F-7G8H-9I0J-K1L2M3N4O5P6",
-        issuerRfc: "AXI123456XYZ",
-        receiverRfc: "PROV987654ABC",
-        issueDate: new Date("2024-03-20T14:45:00Z"),
-        type: "E",
-        subtotal: 5000.0,
-        tax: 800.0,
-        total: 5800.0,
-    },
-    {
-        id: "uuid-3",
-        uuid: "F7E8D9C0-B1A2-9384-7564-534231201918",
-        issuerRfc: "NOM123456789",
-        receiverRfc: "EMP987654321",
-        issueDate: new Date("2024-03-25T09:00:00Z"),
-        type: "N",
-        subtotal: 12000.0,
-        tax: 0.0,
-        total: 12000.0,
-    },
-    {
-        id: "uuid-4",
-        uuid: "3R4S5T6U-7V8W-9X0Y-1Z2A-3B4C5D6E7F8G",
-        issuerRfc: "SAOS890812F32",
-        receiverRfc: "AXI123456XYZ",
-        issueDate: new Date("2024-03-28T16:20:00Z"),
-        type: "I",
-        subtotal: 2500.0,
-        tax: 400.0,
-        total: 2900.0,
-    },
-    {
-        id: "uuid-5",
-        uuid: "8H9I0J1K-2L3M-4N5O-6P7Q-8R9S0T1U2V3W",
-        issuerRfc: "AXI123456XYZ",
-        receiverRfc: "SERV456789DEF",
-        issueDate: new Date("2024-04-02T11:15:00Z"),
-        type: "E",
-        subtotal: 3200.0,
-        tax: 512.0,
-        total: 3712.0,
-    }
-];
-
+// Datos obtenidos de la DB mediante Drizzle ORM
 import { cookies } from "next/headers";
+import { getActiveOrgId, validateAccountantAccess } from "@/lib/accountant/context";
+import { db } from "@/db";
+import { fiscalDocuments } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export default async function InvoicesPage() {
-    const cookieStore = await cookies();
-    const organizationId = cookieStore.get('axioma_active_org')?.value || "";
+    const organizationId = await getActiveOrgId();
+    await validateAccountantAccess(organizationId);
 
-    // Simulando obtención de datos (DB query futura usando organizationId)
-    // const documents = await db.query.fiscalDocuments.findMany({ where: eq(fiscalDocuments.organizationId, organizationId) });
-    const documents = mockDocuments;
+    // Fetching data from the DB filtering strictly by organization_id
+    const data = await db.query.fiscalDocuments.findMany({
+        where: eq(fiscalDocuments.organizationId, organizationId)
+    });
 
-    // Cálculos para KPIs (Simulados)
+    const documents: FiscalDocument[] = data.map(doc => ({
+        id: doc.id,
+        uuid: doc.uuid,
+        issuerRfc: doc.issuerRfc || "",
+        receiverRfc: doc.receiverRfc || "",
+        issueDate: doc.issueDate || new Date(),
+        type: (doc.type || "I") as FiscalDocument["type"],
+        subtotal: parseFloat(doc.subtotal?.toString() || "0"),
+        tax: parseFloat(doc.tax?.toString() || "0"),
+        total: parseFloat(doc.total?.toString() || "0"),
+    }));
+
+    // Cálculos para KPIs
     const totalIngresos = documents
         .filter((doc) => doc.type === "I")
         .reduce((sum, doc) => sum + doc.total, 0);
@@ -107,6 +66,9 @@ export default async function InvoicesPage() {
                     <p className="text-muted-foreground mt-1">
                         Visualiza y administra todos los comprobantes fiscales extraídos y sincronizados desde el SAT.
                     </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <ExportButton orgId={organizationId} />
                 </div>
             </div>
 

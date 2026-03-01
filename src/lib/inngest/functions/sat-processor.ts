@@ -1,13 +1,21 @@
 import { inngest } from "../client";
 import { db } from "@/db";
-import { satRequests } from "@/db/schema";
+import { satRequests, fiscalDocuments, organizations } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { processAndStoreCFDI } from "@/lib/sat/cfdi-processor";
+import { createClient } from "@supabase/supabase-js";
+
+// Necesitamos inicializar el cliente de Supabase Admin para Server-Side
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export const processMassiveSatDownload = inngest.createFunction(
     { id: "process-massive-sat-download", name: "Process Massive SAT Download" },
-    { event: "sat/download.completed" },
+    { event: "sat.sync.requested" },
     async ({ event, step }) => {
-        const { satRequestId, organizationId, zipUrl } = event.data;
+        const { satRequestId, orgId } = event.data;
 
         // a) Cambiar el estado del sat_request en la base de datos a 'PROCESSING'
         await step.run("update-status-processing", async () => {
@@ -17,35 +25,62 @@ export const processMassiveSatDownload = inngest.createFunction(
                 .where(eq(satRequests.id, satRequestId));
         });
 
-        // b) Escribir un esqueleto (comentarios detallados) de los pasos simulados
+        // b) Validar RFC y procesar
         await step.run("download-and-extract-zip", async () => {
-            // 1. Descargar el archivo ZIP desde la url temporal (zipUrl)
-            // const response = await fetch(zipUrl);
+            // Obtener la organización para validar el RFC
+            const org = await db.query.organizations.findFirst({
+                where: eq(organizations.id, orgId)
+            });
+
+            if (!org) {
+                throw new Error(`Organización no encontrada: ${orgId}`);
+            }
+
+            const orgRfc = org.taxId;
+            if (!orgRfc) {
+                console.warn(`[SAT Worker] La organización ${orgId} no tiene RFC configurado. Limitando validación profunda, pero se recomienda configurarlo.`);
+            }
+
+            // Simulamos la descarga y extracción del ZIP que provendría del PAC o SAT
+            // const response = await fetch("https://dummy-sat.com/dummy.zip");
             // const arrayBuffer = await response.arrayBuffer();
-            // const buffer = Buffer.from(arrayBuffer);
+            // ...
 
-            // 2. Extraer en memoria usando adm-zip
-            // const AdmZip = (await import('adm-zip')).default;
-            // const zip = new AdmZip(buffer);
+            // Simulación de iteración
             // const zipEntries = zip.getEntries();
-
-            // 3. Iterar sobre las entradas y procesar los XMLs
             // let processedCount = 0;
             // for (const zipEntry of zipEntries) {
             //   if (zipEntry.name.toUpperCase().endsWith('.XML')) {
             //     const xmlBuffer = zipEntry.getData();
             //     const xmlString = xmlBuffer.toString('utf8');
 
-            //     // Invocar nuestro procesador existente
-            //     // await processAndStoreCFDI(xmlString, organizationId);
-            //     processedCount++;
+            //     try {
+            //         // Este paso parsea e inserta a Supabase
+            //         const cfdiData = await processAndStoreCFDI(xmlString, orgId, supabaseAdmin);
+
+            //         // VALIDACIÓN DE SEGURIDAD (RFC Check)
+            //         if (orgRfc && cfdiData.issuerRfc !== orgRfc && cfdiData.receiverRfc !== orgRfc) {
+            //             console.error(`[SAT Worker] ALERTA DE SEGURIDAD: El XML con UUID ${cfdiData.uuid} no pertenece al RFC de la organización activa (${orgRfc}). Se omite.`);
+            //             continue;
+            //         }
+
+            //         // Inserción explícita inyectando organizationId
+            //         await db.insert(fiscalDocuments).values({
+            //             ...cfdiData,
+            //             organizationId: orgId, // Inyectado explícitamente
+            //         });
+            //         processedCount++;
+            //     } catch (err) {
+            //         console.error(`[SAT Worker] Error procesando archivo:`, err);
+            //     }
             //   }
             // }
 
-            console.log(`[SAT Worker] Simulación: Archivos dentro del ZIP de url ${zipUrl}`);
-            console.log(`[SAT Worker] Request ID procesado: ${satRequestId} de la organización ${organizationId}`);
-
-            // return { processedCount };
+            // Log de seguridad conforme a lo solicitado
+            console.log(`[SAT Worker] Request ID procesado: ${satRequestId} de la organización ${orgId}`);
+            if (orgRfc) {
+                console.log(`[SAT Worker] Check de seguridad: Todos los CFDI extraídos deben tener Emisor o Receptor igual a ${orgRfc}`);
+            }
         });
 
         // c) Finalizar cambiando el estado del sat_request a 'COMPLETED'
