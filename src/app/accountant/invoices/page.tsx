@@ -68,8 +68,14 @@ const mockDocuments: FiscalDocument[] = [
     }
 ];
 
+import { cookies } from "next/headers";
+
 export default async function InvoicesPage() {
-    // Simulando obtención de datos (DB query futura)
+    const cookieStore = await cookies();
+    const organizationId = cookieStore.get('axioma_active_org')?.value || "";
+
+    // Simulando obtención de datos (DB query futura usando organizationId)
+    // const documents = await db.query.fiscalDocuments.findMany({ where: eq(fiscalDocuments.organizationId, organizationId) });
     const documents = mockDocuments;
 
     // Cálculos para KPIs (Simulados)

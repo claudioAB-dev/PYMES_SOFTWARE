@@ -24,9 +24,9 @@ export default async function AccountantDashboard() {
     });
 
     return (
-        <div className="space-y-8 max-w-6xl mx-auto">
+        <div className="space-y-8 max-w-6xl mx-auto" suppressHydrationWarning>
             {/* Header Section */}
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden" suppressHydrationWarning>
                 <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50"></div>
 
                 <div className="relative">
@@ -49,13 +49,14 @@ export default async function AccountantDashboard() {
             </div>
 
             {/* Grid Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" suppressHydrationWarning>
                 {managedCompanies.map((membership) => (
                     <div
                         key={membership.organizationId}
                         className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all duration-300 flex flex-col group overflow-hidden"
+                        suppressHydrationWarning
                     >
-                        <div className="p-6 flex-1">
+                        <div className="p-6 flex-1" suppressHydrationWarning>
                             <div className="flex items-start justify-between mb-4">
                                 <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-100 flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
                                     <Building2 className="w-7 h-7 text-indigo-600" />

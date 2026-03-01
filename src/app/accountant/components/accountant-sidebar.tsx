@@ -20,8 +20,8 @@ export function AccountantSidebar() {
     ];
 
     return (
-        <div className="pb-12 space-y-4 py-4 flex flex-col h-full bg-slate-900 text-white">
-            <div className="px-3 py-2 flex-1">
+        <div className="pb-12 space-y-4 py-4 flex flex-col h-full bg-slate-900 text-white" suppressHydrationWarning>
+            <div className="px-3 py-2 flex-1" suppressHydrationWarning>
                 <Link href="/accountant" className="flex items-center pl-3 mb-14">
                     <h1 className="text-2xl font-bold">
                         Axioma
@@ -51,7 +51,7 @@ export function AccountantSidebar() {
                 </div>
             </div>
             {/* Branding corner */}
-            <div className="p-4 opacity-50 px-6">
+            <div className="p-4 opacity-50 px-6" suppressHydrationWarning>
                 <p className="text-xs font-semibold text-white tracking-widest uppercase">Portal de Contadores</p>
                 <p className="text-[10px] mt-1 text-slate-400">© 2026 Axioma ERP</p>
             </div>

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/db";
 import { memberships, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { AccountantSidebar } from "./components/accountant-sidebar";
 import { AccountantHeader } from "./components/accountant-header";
 
@@ -37,15 +38,31 @@ export default async function AccountantLayout({
         where: eq(users.id, user.id)
     });
 
+    const organizations = accountantMemberships.map(m => ({
+        id: m.organization.id,
+        name: m.organization.name
+    }));
+
+    const cookieStore = await cookies();
+    let activeOrgId = cookieStore.get('axioma_active_org')?.value;
+
+    const isValidOrg = activeOrgId && organizations.some(org => org.id === activeOrgId);
+
+    if ((!activeOrgId || !isValidOrg) && organizations.length > 0) {
+        activeOrgId = organizations[0].id;
+    }
+
     return (
-        <div className="h-full relative">
-            <div className="hidden h-full md:flex md:w-72 md:flex-col md:fixed md:inset-y-0 z-[80] bg-gray-900 border-r border-slate-800">
+        <div className="h-full relative" suppressHydrationWarning>
+            <div className="hidden h-full md:flex md:w-72 md:flex-col md:fixed md:inset-y-0 z-[80] bg-gray-900 border-r border-slate-800" suppressHydrationWarning>
                 <AccountantSidebar />
             </div>
-            <main className="md:pl-72 h-full flex flex-col bg-slate-50/50">
+            <main className="md:pl-72 h-full flex flex-col bg-slate-50/50" suppressHydrationWarning>
                 <AccountantHeader
                     userEmail={user.email!}
                     userName={dbUser?.fullName || 'Contador'}
+                    organizations={organizations}
+                    activeOrgId={activeOrgId}
                 />
                 <div className="p-8 flex-1 overflow-auto" suppressHydrationWarning>
                     {children}

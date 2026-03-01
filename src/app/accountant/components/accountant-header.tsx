@@ -22,12 +22,16 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import { ClientSwitcher } from "./client-switcher";
+
 interface AccountantHeaderProps {
     userEmail?: string;
     userName?: string;
+    organizations?: { id: string; name: string }[];
+    activeOrgId?: string;
 }
 
-export function AccountantHeader({ userEmail, userName }: AccountantHeaderProps) {
+export function AccountantHeader({ userEmail, userName, organizations = [], activeOrgId = "" }: AccountantHeaderProps) {
     const [isOpen, setIsOpen] = useState(false);
     const pathname = usePathname();
 
@@ -50,6 +54,12 @@ export function AccountantHeader({ userEmail, userName }: AccountantHeaderProps)
                 <div className="font-semibold text-lg text-slate-800 hidden md:block" suppressHydrationWarning>
                     Panel Principal - {userName}
                 </div>
+            </div>
+
+            <div className="hidden md:flex flex-1 items-center justify-center px-6">
+                {organizations.length > 0 && activeOrgId && (
+                    <ClientSwitcher organizations={organizations} activeOrgId={activeOrgId} />
+                )}
             </div>
 
             <div className="flex items-center gap-x-4" suppressHydrationWarning>

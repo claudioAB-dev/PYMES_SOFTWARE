@@ -1,37 +1,14 @@
-"use client";
-
-import { useState } from "react";
-import { Server, FileCode, CheckCircle2, Loader2 } from "lucide-react";
-import { toast } from "sonner";
-
-import { uploadManualXML } from "./actions";
+import { Server } from "lucide-react";
+import { cookies } from "next/headers";
 import { SatSyncClient } from "./sat-sync-client";
+import { ManualUploadForm } from "./manual-upload-form";
 
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+export default async function SatSyncPage() {
+    const cookieStore = await cookies();
+    const organizationId = cookieStore.get('axioma_active_org')?.value || "";
 
-export default function SatSyncPage() {
-    // En un escenario real, esto vendría del contexto de estado global o sesión del contador
-    const organizationId = "UUID-AQUI";
-    const [isUploading, setIsUploading] = useState(false);
-
-    async function handleManualUpload(formData: FormData) {
-        setIsUploading(true);
-        try {
-            const result = await uploadManualXML(formData, organizationId);
-            if (result.success) {
-                toast.success(result.message);
-            } else {
-                toast.error(result.error);
-            }
-        } catch (error) {
-            toast.error("Ocurrió un error inesperado al subir el archivo.");
-        } finally {
-            setIsUploading(false);
-        }
-    }
+    // In a real scenario you would probably want to show an empty state or redirect
+    // if there's no organizationId, but since the layout handles that, we can assume it exists.
 
     return (
         <div className="flex-1 space-y-6 p-8 pt-6 max-w-7xl mx-auto">
@@ -53,53 +30,7 @@ export default function SatSyncPage() {
                 </div>
 
                 <div className="lg:col-span-1 space-y-6">
-                    <Card className="flex flex-col sticky top-6 border-border/50 shadow-sm">
-                        <CardHeader>
-                            <div className="flex items-center gap-2 mb-2">
-                                <FileCode className="h-5 w-5 text-primary" />
-                                <CardTitle className="text-xl">Prueba Manual</CardTitle>
-                            </div>
-                            <CardDescription>
-                                Sube un archivo XML manualmente (CFDI 4.0) para probar el procesamiento y decodificación.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex-1">
-                            <form id="manual-upload-form" action={handleManualUpload} className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="xml-file">Archivo CFDI (.xml)</Label>
-                                    <Input
-                                        id="xml-file"
-                                        name="file"
-                                        type="file"
-                                        accept=".xml"
-                                        required
-                                        className="cursor-pointer file:cursor-pointer file:text-primary file:font-semibold"
-                                    />
-                                </div>
-                            </form>
-                        </CardContent>
-                        <CardFooter>
-                            <Button
-                                type="submit"
-                                form="manual-upload-form"
-                                variant="secondary"
-                                className="w-full"
-                                disabled={isUploading}
-                            >
-                                {isUploading ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Procesando XML...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                                        Subir XML
-                                    </>
-                                )}
-                            </Button>
-                        </CardFooter>
-                    </Card>
+                    <ManualUploadForm organizationId={organizationId} />
                 </div>
             </div>
         </div>

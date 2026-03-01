@@ -24,3 +24,24 @@ export async function generateClientInviteLink() {
 
     return { success: true, url: inviteUrl };
 }
+
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+
+export async function setActiveOrganization(organizationId: string) {
+    const cookieStore = await cookies();
+
+    // Set cookie to expire in 30 days
+    const expires = new Date();
+    expires.setDate(expires.getDate() + 30);
+
+    cookieStore.set('axioma_active_org', organizationId, {
+        expires,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+    });
+
+    revalidatePath('/', 'layout');
+}
