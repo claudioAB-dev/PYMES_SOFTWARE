@@ -7,6 +7,8 @@ import { cookies } from "next/headers";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardLayout({
     children,
 }: {

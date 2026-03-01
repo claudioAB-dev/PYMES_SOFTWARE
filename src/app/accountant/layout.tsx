@@ -7,6 +7,8 @@ import { cookies } from "next/headers";
 import { AccountantSidebar } from "./components/accountant-sidebar";
 import { AccountantHeader } from "./components/accountant-header";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AccountantLayout({
     children,
 }: {

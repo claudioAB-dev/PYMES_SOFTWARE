@@ -3,6 +3,8 @@ import { getFinancialAccounts } from "../treasury/actions";
 import { PayrollTable } from "./payroll-table";
 import { CreatePayrollSheet } from "./create-payroll-sheet";
 
+export const dynamic = 'force-dynamic';
+
 export default async function PayrollPage() {
     const [payrolls, accounts] = await Promise.all([
         getPayrolls(),

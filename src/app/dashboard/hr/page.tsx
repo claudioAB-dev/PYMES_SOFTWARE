@@ -2,6 +2,8 @@ import { getEmployees } from "./actions";
 import { EmployeeTable, columns } from "./employee-table";
 import { CreateEmployeeSheet } from "./create-employee-sheet";
 
+export const dynamic = 'force-dynamic';
+
 export default async function HRPage() {
     const employees = await getEmployees();
 
