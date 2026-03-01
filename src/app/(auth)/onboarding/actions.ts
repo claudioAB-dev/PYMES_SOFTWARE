@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
+import { verifyInviteToken } from "@/lib/auth/token";
 
 // ─── Slugify helper ────────────────────────────────────────────────────────────
 // Converts any company name into a URL-safe slug.
@@ -73,6 +75,15 @@ export async function createOrganizationAction(input: CreateOrganizationInput) {
     const baseSlug = slugify(name) || `org-${randomSuffix()}`;
     const slug = await findUniqueSlug(baseSlug);
 
+    // 3. Reverse Invitation Check
+    const cookieStore = await cookies();
+    const refTokenCookie = cookieStore.get('axioma_ref_token')?.value;
+    let accountantIdToLink: string | null = null;
+
+    if (refTokenCookie) {
+        accountantIdToLink = verifyInviteToken(refTokenCookie);
+    }
+
     try {
         await db.transaction(async (tx) => {
             // 1. Create Organization
@@ -93,6 +104,17 @@ export async function createOrganizationAction(input: CreateOrganizationInput) {
                 organizationId: newOrg.id,
                 role: "OWNER",
             });
+
+            // 3. Create Membership (Accountant) if reverse invite exists
+            if (accountantIdToLink) {
+                await tx.insert(memberships).values({
+                    userId: accountantIdToLink,
+                    organizationId: newOrg.id,
+                    role: "ACCOUNTANT",
+                });
+                // Clear the cookie so it doesn't get applied strictly randomly later
+                cookieStore.delete('axioma_ref_token');
+            }
         });
     } catch (err: unknown) {
         const message =

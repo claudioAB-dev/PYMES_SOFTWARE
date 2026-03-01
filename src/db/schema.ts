@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, decimal, pgEnum, boolean, integer, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, decimal, pgEnum, boolean, integer, index, varchar, date } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // --- ENUMS ---
@@ -16,6 +16,8 @@ export const payrollStatusEnum = pgEnum('payroll_status', ['DRAFT', 'APPROVED', 
 export const accountTypeEnum = pgEnum('account_type', ['BANK', 'CASH', 'CREDIT']);
 export const transactionTypeEnum = pgEnum('transaction_type', ['INCOME', 'EXPENSE', 'TRANSFER']);
 export const transactionCategoryEnum = pgEnum('transaction_category', ['SALE', 'PURCHASE', 'PAYROLL', 'OPERATING_EXPENSE', 'TAX', 'CAPITAL']);
+export const satRequestStatusEnum = pgEnum('sat_request_status', ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED']);
+export const cfdiTypeEnum = pgEnum('cfdi_type', ['I', 'E', 'T', 'N', 'P']);
 
 // --- TABLES ---
 
@@ -25,6 +27,7 @@ export const users = pgTable("users", {
     email: text("email").notNull().unique(),
     fullName: text("full_name"),
     avatarUrl: text("avatar_url"),
+    isAccountant: boolean("is_accountant").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -216,6 +219,36 @@ export const treasuryTransactions = pgTable("treasury_transactions", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// 15. SAT Requests (Fiscal Module)
+export const satRequests = pgTable("sat_requests", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+    pacRequestId: varchar("pac_request_id", { length: 255 }),
+    status: satRequestStatusEnum("status").default('PENDING'),
+    periodStart: date("period_start", { mode: 'date' }),
+    periodEnd: date("period_end", { mode: 'date' }),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at"),
+});
+
+// 16. Fiscal Documents (Metadata of CFDI)
+export const fiscalDocuments = pgTable("fiscal_documents", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+    uuid: varchar("uuid", { length: 36 }).unique().notNull(),
+    issuerRfc: varchar("issuer_rfc", { length: 13 }),
+    receiverRfc: varchar("receiver_rfc", { length: 13 }),
+    issueDate: timestamp("issue_date"),
+    type: cfdiTypeEnum("type"),
+    subtotal: decimal("subtotal", { precision: 12, scale: 2 }),
+    tax: decimal("tax", { precision: 12, scale: 2 }),
+    total: decimal("total", { precision: 12, scale: 2 }),
+    storagePathXml: varchar("storage_path_xml", { length: 255 }),
+    storagePathPdf: varchar("storage_path_pdf", { length: 255 }),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at"),
+});
+
 // --- RELATIONS ---
 export const usersRelations = relations(users, ({ many }) => ({
     memberships: many(memberships),
@@ -235,6 +268,8 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
     payrolls: many(payrolls),
     financialAccounts: many(financialAccounts),
     treasuryTransactions: many(treasuryTransactions),
+    satRequests: many(satRequests),
+    fiscalDocuments: many(fiscalDocuments),
 }));
 
 export const membershipsRelations = relations(memberships, ({ one }) => ({
@@ -289,4 +324,12 @@ export const treasuryTransactionsRelations = relations(treasuryTransactions, ({ 
     organization: one(organizations, { fields: [treasuryTransactions.organizationId], references: [organizations.id] }),
     account: one(financialAccounts, { fields: [treasuryTransactions.accountId], references: [financialAccounts.id] }),
     user: one(users, { fields: [treasuryTransactions.createdBy], references: [users.id] }),
+}));
+
+export const satRequestsRelations = relations(satRequests, ({ one }) => ({
+    organization: one(organizations, { fields: [satRequests.organizationId], references: [organizations.id] }),
+}));
+
+export const fiscalDocumentsRelations = relations(fiscalDocuments, ({ one }) => ({
+    organization: one(organizations, { fields: [fiscalDocuments.organizationId], references: [organizations.id] }),
 }));

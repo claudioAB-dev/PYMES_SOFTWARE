@@ -1,17 +1,18 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Briefcase, Calculator } from 'lucide-react'
 
 import { signup } from '@/app/(auth)/actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
     Form,
     FormControl,
@@ -43,6 +44,7 @@ type RegisterValues = z.infer<typeof registerSchema>
 
 export default function RegisterPage() {
     const [isPending, startTransition] = useTransition()
+    const [role, setRole] = useState<'business' | 'accountant'>('business')
     const router = useRouter()
 
     const form = useForm<RegisterValues>({
@@ -52,7 +54,12 @@ export default function RegisterPage() {
 
     function onSubmit(values: RegisterValues) {
         startTransition(async () => {
-            const res = await signup({ email: values.email, password: values.password })
+            const res = await signup({
+                name: values.name,
+                email: values.email,
+                password: values.password,
+                isAccountant: role === 'accountant'
+            })
             if (res?.error) {
                 toast.error('No se pudo crear la cuenta', {
                     description: res.error,
@@ -64,7 +71,7 @@ export default function RegisterPage() {
     }
 
     return (
-        <div>
+        <div suppressHydrationWarning>
             {/* Header */}
             <div className="mb-7">
                 <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
@@ -75,8 +82,27 @@ export default function RegisterPage() {
                 </p>
             </div>
 
+            <Tabs defaultValue="business" className="mb-6 w-full" onValueChange={(val) => setRole(val as any)}>
+                <TabsList className="grid w-full grid-cols-2 p-1 bg-gray-100 rounded-lg">
+                    <TabsTrigger
+                        value="business"
+                        className="rounded-md flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-indigo-600 font-medium transition-all"
+                    >
+                        <Briefcase className="w-4 h-4" />
+                        Negocio
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="accountant"
+                        className="rounded-md flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-indigo-600 font-medium transition-all"
+                    >
+                        <Calculator className="w-4 h-4" />
+                        Soy Contador
+                    </TabsTrigger>
+                </TabsList>
+            </Tabs>
+
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate suppressHydrationWarning>
                     {/* Full name */}
                     <FormField
                         control={form.control}

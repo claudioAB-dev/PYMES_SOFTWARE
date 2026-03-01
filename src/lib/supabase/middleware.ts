@@ -32,9 +32,27 @@ export async function updateSession(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     const pathname = request.nextUrl.pathname
 
-    // Protect /dashboard: unauthenticated users go to /login
-    if (pathname.startsWith('/dashboard') && !user) {
+    const isAccountant = user?.user_metadata?.is_accountant === true;
+
+    // Protect /dashboard and /accountant: unauthenticated users go to /login
+    if ((pathname.startsWith('/dashboard') || pathname.startsWith('/accountant') || pathname.startsWith('/onboarding')) && !user) {
         return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    // Logic for authenticated accountants
+    if (user && isAccountant) {
+        // Accountants skip onboarding and shouldn't access the regular dashboard
+        if (pathname.startsWith('/onboarding') || pathname === '/dashboard' || pathname === '/') {
+            return NextResponse.redirect(new URL('/accountant', request.url))
+        }
+    }
+
+    // Logic for authenticated regular users
+    if (user && !isAccountant) {
+        // Regular users shouldn't access the accountant portal
+        if (pathname.startsWith('/accountant')) {
+            return NextResponse.redirect(new URL('/dashboard', request.url))
+        }
     }
 
     // Redirect authenticated users away from /login and /register only.
@@ -42,7 +60,36 @@ export async function updateSession(request: NextRequest) {
     // an invite link even when they already have a session.
     const isAuthOnlyPage = pathname === '/login' || pathname === '/register'
     if (isAuthOnlyPage && user) {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
+        if (isAccountant) {
+            return NextResponse.redirect(new URL('/accountant', request.url))
+        } else {
+            return NextResponse.redirect(new URL('/dashboard', request.url))
+        }
+    }
+
+    // Intercept invite tokens and store them in a cookie
+    const searchParams = request.nextUrl.searchParams
+    if (pathname === '/invite' && searchParams.has('token')) {
+        const token = searchParams.get('token')
+        response.cookies.set('axioma_invite_token', token!, {
+            path: '/',
+            maxAge: 60 * 60 * 24 * 7, // 7 days
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+        })
+    }
+
+    // Intercept reverse invite tokens from Accountants
+    if (pathname === '/register' && searchParams.has('ref')) {
+        const refToken = searchParams.get('ref')
+        response.cookies.set('axioma_ref_token', refToken!, {
+            path: '/',
+            maxAge: 60 * 60 * 24 * 1, // 1 day
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+        })
     }
 
     return response

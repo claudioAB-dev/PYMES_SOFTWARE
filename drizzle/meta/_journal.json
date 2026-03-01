@@ -43,6 +43,13 @@
       "when": 1772149174516,
       "tag": "0005_volatile_spacker_dave",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772231247420,
+      "tag": "0006_futuristic_miss_america",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,8 @@
-# 🦅 Project Base
+# 🦅 Project Axioma
 
 > **ERP SaaS & Boilerplate para la Mediana Empresa Mexicana.**
 
-**Base** es un sistema de gestión empresarial (ERP) diseñado para imponer orden en el caos operativo de las PyMEs. A diferencia de los SaaS genéricos, este sistema está construido bajo la filosofía **"80% Roca / 20% Agua"**: un núcleo rígido de procesos inmutables (Inventarios, Tesorería, SAT) y una capa flexible para adaptaciones rápidas.
+**Axioma** es un sistema de gestión empresarial (ERP) diseñado para imponer orden en el caos operativo de las PyMEs. A diferencia de los SaaS genéricos, este sistema está construido bajo la filosofía **"80% Roca / 20% Agua"**: un núcleo rígido de procesos inmutables (Inventarios, Tesorería, SAT) y una capa flexible para adaptaciones rápidas.
 
 ---
 
@@ -32,5 +32,5 @@ Clona el repositorio e instala las dependencias:
 
 ```bash
 git clone [https://github.com/tu-usuario/PYMES_SOFTWARE.git](https://github.com/tu-usuario/PYMES_SOFTWARE.git)
-cd Base
+cd Axioma
 pnpm install
