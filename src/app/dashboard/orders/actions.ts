@@ -86,7 +86,7 @@ export async function createOrder(input: CreateOrderInput) {
     const newOrderTotal = orderSubtotal * 1.16; // 16% IVA
 
     const entity = await db.query.entities.findFirst({
-        where: eq(entities.id, entityId)
+        where: and(eq(entities.id, entityId), eq(entities.organizationId, organizationId))
     });
 
     if (!entity) {
@@ -126,7 +126,7 @@ export async function createOrder(input: CreateOrderInput) {
         await db.transaction(async (tx) => {
             // Fetch products inside transaction to ensure consistent data and stock validation
             const dbProducts = await tx.query.products.findMany({
-                where: inArray(products.id, productIds),
+                where: and(inArray(products.id, productIds), eq(products.organizationId, organizationId)),
             });
             const productMap = new Map(dbProducts.map(p => [p.id, p]));
 
@@ -188,7 +188,7 @@ export async function createOrder(input: CreateOrderInput) {
                 if (status === 'CONFIRMED' && product.type === 'PRODUCT') {
                     const [updated] = await tx.update(products)
                         .set({ stock: sql`${products.stock} - ${item.quantity}` })
-                        .where(eq(products.id, item.productId))
+                        .where(and(eq(products.id, item.productId), eq(products.organizationId, organizationId)))
                         .returning({ stock: products.stock });
 
                     const newStock = Number(updated.stock);
@@ -243,7 +243,7 @@ export async function deleteOrder(orderId: string) {
         await db.transaction(async (tx) => {
             // 1. Get Order and Items to check status and restore stock
             const order = await tx.query.orders.findFirst({
-                where: eq(orders.id, orderId),
+                where: and(eq(orders.id, orderId), eq(orders.organizationId, organizationId)),
                 with: {
                     items: {
                         with: {
@@ -262,7 +262,7 @@ export async function deleteOrder(orderId: string) {
                         // Ensure numeric addition even if quantity is string
                         const [updated] = await tx.update(products)
                             .set({ stock: sql`${products.stock} + ${Number(item.quantity)}` })
-                            .where(eq(products.id, item.productId))
+                            .where(and(eq(products.id, item.productId), eq(products.organizationId, organizationId)))
                             .returning({ stock: products.stock });
 
                         const newStock = Number(updated.stock);
@@ -380,7 +380,7 @@ export async function updateOrderStatus(orderId: string, newStatus: 'CONFIRMED' 
                     if (item.product.type === 'PRODUCT') {
                         const [updated] = await tx.update(products)
                             .set({ stock: sql`${products.stock} + ${Number(item.quantity)}` })
-                            .where(eq(products.id, item.productId))
+                            .where(and(eq(products.id, item.productId), eq(products.organizationId, organizationId)))
                             .returning({ stock: products.stock });
 
                         const newStock = Number(updated.stock);
@@ -413,7 +413,7 @@ export async function updateOrderStatus(orderId: string, newStatus: 'CONFIRMED' 
 
                         const [updated] = await tx.update(products)
                             .set({ stock: sql`${products.stock} - ${Number(item.quantity)}` })
-                            .where(eq(products.id, item.productId))
+                            .where(and(eq(products.id, item.productId), eq(products.organizationId, organizationId)))
                             .returning({ stock: products.stock });
 
                         const newStock = Number(updated.stock);
@@ -437,7 +437,7 @@ export async function updateOrderStatus(orderId: string, newStatus: 'CONFIRMED' 
             // 3. Update Status
             await tx.update(orders)
                 .set({ status: newStatus })
-                .where(eq(orders.id, orderId));
+                .where(and(eq(orders.id, orderId), eq(orders.organizationId, organizationId)));
         });
 
         revalidatePath(`/dashboard/orders/${orderId}`);

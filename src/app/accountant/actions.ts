@@ -234,7 +234,7 @@ export async function cancelClientInvite(invitationId: string) {
 
         await db.update(invitations)
             .set({ status: 'REVOKED' })
-            .where(eq(invitations.id, invitationId));
+            .where(and(eq(invitations.id, invitationId), eq(invitations.invitedBy, user.id)));
 
         revalidatePath('/accountant/organizations');
         return { success: true };

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { db } from "@/db";
 import { memberships, orders } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
@@ -193,8 +194,10 @@ export default async function AccountantDashboard() {
                                                 {formatCurrency(m.retenciones)}
                                             </TableCell>
                                             <TableCell className="text-center pr-6">
-                                                <Button variant="outline" size="sm">
-                                                    Ver detalles
+                                                <Button variant="outline" size="sm" asChild>
+                                                    <Link href={`/accountant/organizations/${org.id}`}>
+                                                        Ver detalles
+                                                    </Link>
                                                 </Button>
                                             </TableCell>
                                         </TableRow>

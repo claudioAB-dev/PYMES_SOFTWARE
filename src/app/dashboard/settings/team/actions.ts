@@ -242,7 +242,7 @@ export async function removeMember(memberId: string, organizationId: string) {
         }
 
         // Delete membership
-        await db.delete(memberships).where(eq(memberships.id, memberId))
+        await db.delete(memberships).where(and(eq(memberships.id, memberId), eq(memberships.organizationId, organizationId)))
 
         revalidatePath('/dashboard/settings')
 

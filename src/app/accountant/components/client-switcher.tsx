@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { Building2 } from "lucide-react";
 import { setActiveOrganization } from "../actions";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 import {
     Select,
@@ -27,6 +28,7 @@ interface ClientSwitcherProps {
 
 export function ClientSwitcher({ organizations, activeOrgId }: ClientSwitcherProps) {
     const [isPending, startTransition] = useTransition();
+    const router = useRouter();
 
     const handleOrgChange = (orgId: string) => {
         if (orgId === activeOrgId) return;
@@ -35,6 +37,8 @@ export function ClientSwitcher({ organizations, activeOrgId }: ClientSwitcherPro
             try {
                 await setActiveOrganization(orgId);
                 toast.success("Empresa activa actualizada");
+                router.push(`/accountant/organizations/${orgId}`);
+                router.refresh();
             } catch (error) {
                 toast.error("Error al cambiar la empresa activa");
             }

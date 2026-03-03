@@ -170,7 +170,7 @@ export async function adjustInventory(productId: string, newQuantity: number, no
 
             await tx.update(products)
                 .set({ stock: newQuantity.toString() })
-                .where(eq(products.id, productId));
+                .where(and(eq(products.id, productId), eq(products.organizationId, organizationId)));
 
             await tx.insert(inventoryMovements).values({
                 organizationId,

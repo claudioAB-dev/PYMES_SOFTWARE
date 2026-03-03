@@ -244,7 +244,7 @@ export async function markPayrollAsPaid(payrollId: string, paymentMethod: "CASH"
                     paymentDate: new Date(),
                     updatedAt: new Date()
                 })
-                .where(eq(payrolls.id, payrollId));
+                .where(and(eq(payrolls.id, payrollId), eq(payrolls.organizationId, organizationId)));
 
             // Insert Treasury Transaction
             const amount = Number(payroll.netAmount);
@@ -263,7 +263,7 @@ export async function markPayrollAsPaid(payrollId: string, paymentMethod: "CASH"
             // Update Account Balance
             await tx.update(financialAccounts)
                 .set({ balance: sql`${financialAccounts.balance} - ${amount}` })
-                .where(eq(financialAccounts.id, accountId));
+                .where(and(eq(financialAccounts.id, accountId), eq(financialAccounts.organizationId, organizationId)));
 
             success = true;
         });

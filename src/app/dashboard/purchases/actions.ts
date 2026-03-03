@@ -128,7 +128,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
                                 stock: sql`${products.stock} + ${item.quantity}`,
                                 cost: item.price.toString()
                             })
-                            .where(eq(products.id, item.productId))
+                            .where(and(eq(products.id, item.productId), eq(products.organizationId, organizationId)))
                             .returning({ stock: products.stock });
 
                         const newStock = Number(updated.stock);
@@ -222,7 +222,7 @@ export async function registerSupplierPayment(orderId: string, amount: number, m
 
             await tx.update(financialAccounts)
                 .set({ balance: sql`${financialAccounts.balance} - ${amount}` })
-                .where(eq(financialAccounts.id, accountId));
+                .where(and(eq(financialAccounts.id, accountId), eq(financialAccounts.organizationId, organizationId)));
 
             const newTotalPaid = totalPaid + amount;
             const orderTotal = Number(order.totalAmount);
@@ -238,7 +238,7 @@ export async function registerSupplierPayment(orderId: string, amount: number, m
 
             await tx.update(orders)
                 .set({ paymentStatus: newStatus })
-                .where(eq(orders.id, orderId));
+                .where(and(eq(orders.id, orderId), eq(orders.organizationId, organizationId)));
         });
 
         revalidatePath(`/dashboard/purchases/${orderId}`);
@@ -286,7 +286,7 @@ export async function updatePurchaseOrderStatus(orderId: string, newStatus: 'CON
 
                         const [updated] = await tx.update(products)
                             .set({ stock: sql`${products.stock} - ${Number(item.quantity)}` }) // REVERSING the ADD -> SUBTRACT
-                            .where(eq(products.id, item.productId))
+                            .where(and(eq(products.id, item.productId), eq(products.organizationId, organizationId)))
                             .returning({ stock: products.stock });
 
                         const newStock = Number(updated.stock);
@@ -313,7 +313,7 @@ export async function updatePurchaseOrderStatus(orderId: string, newStatus: 'CON
                     if (item.product.type === 'PRODUCT') {
                         const [updated] = await tx.update(products)
                             .set({ stock: sql`${products.stock} + ${Number(item.quantity)}` }) // RE-ADDING
-                            .where(eq(products.id, item.productId))
+                            .where(and(eq(products.id, item.productId), eq(products.organizationId, organizationId)))
                             .returning({ stock: products.stock });
 
                         const newStock = Number(updated.stock);
@@ -341,7 +341,7 @@ export async function updatePurchaseOrderStatus(orderId: string, newStatus: 'CON
 
             await tx.update(orders)
                 .set({ status: newStatus })
-                .where(eq(orders.id, orderId));
+                .where(and(eq(orders.id, orderId), eq(orders.organizationId, organizationId)));
         });
 
         revalidatePath(`/dashboard/purchases/${orderId}`);

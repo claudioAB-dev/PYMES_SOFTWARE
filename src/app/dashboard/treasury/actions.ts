@@ -98,7 +98,7 @@ export async function registerManualTransaction(input: {
 
             await tx.update(financialAccounts)
                 .set({ balance: sql`${financialAccounts.balance} + ${balanceAdjustment}` })
-                .where(eq(financialAccounts.id, accountId));
+                .where(and(eq(financialAccounts.id, accountId), eq(financialAccounts.organizationId, organizationId)));
         });
 
         revalidatePath("/dashboard/treasury");
@@ -356,7 +356,7 @@ export async function registerOrderPayment(orderId: string, amount: number, meth
 
             await tx.update(financialAccounts)
                 .set({ balance: sql`${financialAccounts.balance} + ${balanceAdjustment}` })
-                .where(eq(financialAccounts.id, accountId));
+                .where(and(eq(financialAccounts.id, accountId), eq(financialAccounts.organizationId, organizationId)));
 
             // 4. Update Order Status
             const newTotalPaid = totalPaid + amount;
@@ -373,7 +373,7 @@ export async function registerOrderPayment(orderId: string, amount: number, meth
 
             await tx.update(orders)
                 .set({ paymentStatus: newStatus })
-                .where(eq(orders.id, orderId));
+                .where(and(eq(orders.id, orderId), eq(orders.organizationId, organizationId)));
         });
 
         revalidatePath(`/dashboard/orders/${orderId}`);

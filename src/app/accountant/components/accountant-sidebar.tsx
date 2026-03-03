@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users } from "lucide-react";
+import { LayoutDashboard, Users, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function AccountantSidebar() {
+export function AccountantSidebar({ activeOrgId }: { activeOrgId?: string }) {
     const pathname = usePathname();
 
     const routes = [
@@ -23,6 +23,15 @@ export function AccountantSidebar() {
             color: "text-indigo-500",
         },
     ];
+
+    if (activeOrgId) {
+        routes.push({
+            label: "Resumen Fiscal",
+            icon: FileText,
+            href: `/accountant/organizations/${activeOrgId}`,
+            color: "text-emerald-400",
+        });
+    }
 
     return (
         <div className="pb-12 space-y-4 py-4 flex flex-col h-full bg-slate-900 text-white" suppressHydrationWarning>
