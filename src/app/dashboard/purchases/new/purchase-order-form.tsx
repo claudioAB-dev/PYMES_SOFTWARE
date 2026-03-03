@@ -19,6 +19,7 @@ interface Product {
     id: string;
     name: string;
     price: string;
+    cost: string;
     stock: string;
 }
 
@@ -108,10 +109,31 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
                                     <span>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(total)}</span>
                                 </div>
                             </CardContent>
-                            <CardFooter>
-                                <Button type="submit" className="w-full" disabled={isPending}>
-                                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {isPending ? "Procesando..." : "Crear Orden de Compra"}
+                            <CardFooter className="flex-col gap-3">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full"
+                                    disabled={isPending}
+                                    onClick={() => {
+                                        form.setValue('status', 'DRAFT');
+                                        form.handleSubmit(onSubmit)();
+                                    }}
+                                >
+                                    {isPending && form.getValues('status') === 'DRAFT' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Guardar Borrador
+                                </Button>
+                                <Button
+                                    type="button"
+                                    className="w-full"
+                                    disabled={isPending}
+                                    onClick={() => {
+                                        form.setValue('status', 'CONFIRMED');
+                                        form.handleSubmit(onSubmit)();
+                                    }}
+                                >
+                                    {isPending && form.getValues('status') === 'CONFIRMED' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Confirmar Recepción/Compra
                                 </Button>
                             </CardFooter>
                         </Card>

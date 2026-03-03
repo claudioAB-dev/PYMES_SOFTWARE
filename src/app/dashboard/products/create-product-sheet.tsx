@@ -26,6 +26,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import { Loader2 } from "lucide-react";
 
 export function CreateProductSheet() {
@@ -38,6 +39,8 @@ export function CreateProductSheet() {
             name: "",
             sku: "",
             price: "",
+            cost: 0,
+            priceIncludesVat: false,
             stock: 0,
             type: "PRODUCT",
         },
@@ -143,7 +146,7 @@ export function CreateProductSheet() {
                                     name="price"
                                     render={({ field }) => (
                                         <FormItem className="flex-1">
-                                            <FormLabel>Precio *</FormLabel>
+                                            <FormLabel>Precio Venta *</FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="number"
@@ -157,31 +160,75 @@ export function CreateProductSheet() {
                                     )}
                                 />
 
-                                {productType === "PRODUCT" && (
-                                    <FormField
-                                        control={form.control}
-                                        name="stock"
-                                        render={({ field }) => (
-                                            <FormItem className="flex-1">
-                                                <FormLabel>Stock Inicial</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="0"
-                                                        {...field}
-                                                        value={field.value ?? ""}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value === "" ? undefined : Number(e.target.value);
-                                                            field.onChange(val);
-                                                        }}
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                )}
+                                <FormField
+                                    control={form.control}
+                                    name="cost"
+                                    render={({ field }) => (
+                                        <FormItem className="flex-1">
+                                            <FormLabel>Costo *</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="0.00"
+                                                    {...field}
+                                                    value={field.value ?? ""}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value === "" ? undefined : Number(e.target.value);
+                                                        field.onChange(val);
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                             </div>
+
+                            {productType === "PRODUCT" && (
+                                <FormField
+                                    control={form.control}
+                                    name="stock"
+                                    render={({ field }) => (
+                                        <FormItem className="flex-1">
+                                            <FormLabel>Stock Inicial</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="number"
+                                                    placeholder="0"
+                                                    {...field}
+                                                    value={field.value ?? ""}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value === "" ? undefined : Number(e.target.value);
+                                                        field.onChange(val);
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
+
+                            <FormField
+                                control={form.control}
+                                name="priceIncludesVat"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                        <div className="space-y-0.5">
+                                            <FormLabel>
+                                                ¿El precio incluye IVA (16%)?
+                                            </FormLabel>
+                                        </div>
+                                        <FormControl>
+                                            <Switch
+                                                checked={!!field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
 
                             <SheetFooter className="mt-6">
                                 <Button type="submit" disabled={isPending}>
@@ -193,6 +240,6 @@ export function CreateProductSheet() {
                     </Form>
                 </div>
             </SheetContent>
-        </Sheet>
+        </Sheet >
     );
 }

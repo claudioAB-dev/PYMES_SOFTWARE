@@ -51,8 +51,10 @@ export function OrderForm({ clients, products }: OrderFormProps) {
     }, 0) || 0;
 
     const taxRate = 0.16;
+    const retentionRate = 0.0125;
     const tax = subtotal * taxRate;
-    const total = subtotal + tax;
+    const retention = subtotal * retentionRate;
+    const total = subtotal + tax - retention;
 
     async function onSubmit(data: CreateOrderInput) {
         setIsPending(true);
@@ -99,8 +101,12 @@ export function OrderForm({ clients, products }: OrderFormProps) {
                                     <span>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(subtotal)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">IVA (16%)</span>
+                                    <span className="text-muted-foreground">IVA Trasladado (16%)</span>
                                     <span>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(tax)}</span>
+                                </div>
+                                <div className="flex justify-between text-red-600 dark:text-red-400">
+                                    <span className="text-muted-foreground text-inherit">Retención ISR (1.25%)</span>
+                                    <span>-{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(retention)}</span>
                                 </div>
                                 <Separator />
                                 <div className="flex justify-between font-bold text-lg">
@@ -108,10 +114,31 @@ export function OrderForm({ clients, products }: OrderFormProps) {
                                     <span>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(total)}</span>
                                 </div>
                             </CardContent>
-                            <CardFooter>
-                                <Button type="submit" className="w-full" disabled={isPending}>
-                                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {isPending ? "Guardando..." : "Crear Orden"}
+                            <CardFooter className="flex-col gap-3">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full"
+                                    disabled={isPending}
+                                    onClick={() => {
+                                        form.setValue('status', 'DRAFT');
+                                        form.handleSubmit(onSubmit)();
+                                    }}
+                                >
+                                    {isPending && form.getValues('status') === 'DRAFT' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Guardar Cotización
+                                </Button>
+                                <Button
+                                    type="button"
+                                    className="w-full"
+                                    disabled={isPending}
+                                    onClick={() => {
+                                        form.setValue('status', 'CONFIRMED');
+                                        form.handleSubmit(onSubmit)();
+                                    }}
+                                >
+                                    {isPending && form.getValues('status') === 'CONFIRMED' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Confirmar Venta
                                 </Button>
                             </CardFooter>
                         </Card>

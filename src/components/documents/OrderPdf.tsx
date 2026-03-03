@@ -179,11 +179,13 @@ export const OrderPdf = ({ order }: OrderPdfProps) => {
             <Page size="A4" style={styles.page}>
                 <View style={styles.header}>
                     <View style={styles.headerLeft}>
-                        <Text style={styles.title}>ORDEN DE VENTA</Text>
+                        <Text style={styles.title}>{order.status === 'DRAFT' ? 'COTIZACIÓN' : 'NOTA DE VENTA'}</Text>
                         <Text style={styles.subtitle}>#{order.id.slice(0, 8).toUpperCase()}</Text>
-                        <View style={[styles.statusBadge, paymentBadgeStyle]}>
-                            <Text>{paymentText}</Text>
-                        </View>
+                        {order.status !== 'DRAFT' && (
+                            <View style={[styles.statusBadge, paymentBadgeStyle]}>
+                                <Text>{paymentText}</Text>
+                            </View>
+                        )}
                     </View>
                     <View style={styles.headerRight}>
                         <Text style={styles.infoText}>{format(new Date(order.createdAt), "PPP", { locale: es })}</Text>
@@ -255,6 +257,13 @@ export const OrderPdf = ({ order }: OrderPdfProps) => {
                         </View>
                     </View>
                 </View>
+                {order.status === 'DRAFT' && (
+                    <View style={{ marginTop: 40, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#EEEEEE' }}>
+                        <Text style={{ fontSize: 8, color: '#666666', textAlign: 'center' }}>
+                            Precios sujetos a cambios sin previo aviso. Esta cotización no reserva inventario.
+                        </Text>
+                    </View>
+                )}
             </Page>
         </Document>
     );

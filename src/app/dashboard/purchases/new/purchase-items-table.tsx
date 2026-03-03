@@ -24,6 +24,7 @@ interface Product {
     id: string;
     name: string;
     price: string;
+    cost: string;
     stock: string;
 }
 
@@ -40,7 +41,7 @@ export function PurchaseItemsTable({ form, products }: PurchaseItemsTableProps) 
 
     const getProductPrice = (productId: string) => {
         const product = products.find((p) => p.id === productId);
-        return product ? parseFloat(product.price) : 0;
+        return product ? parseFloat(product.cost || product.price) : 0;
     };
 
     return (

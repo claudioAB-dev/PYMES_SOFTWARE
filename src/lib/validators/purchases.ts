@@ -9,7 +9,7 @@ export const purchaseOrderItemSchema = z.object({
 
 export const createPurchaseOrderSchema = z.object({
     entityId: z.string().uuid("Proveedor requerido"),
-    status: z.enum(orderStatusEnum.enumValues).default('CONFIRMED'), // Assuming confirmed by default for immediate stock impact, or DRAFT
+    status: z.enum(orderStatusEnum.enumValues).default('DRAFT'),
     items: z.array(purchaseOrderItemSchema).min(1, "Debe agregar al menos un producto"),
 });
 

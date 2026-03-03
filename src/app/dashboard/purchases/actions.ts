@@ -84,36 +84,50 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
 
     try {
         await db.transaction(async (tx) => {
+            // Calculate totals
+            let subtotal = 0;
+            for (const item of items) {
+                subtotal += item.quantity * item.price;
+            }
+
+            const taxRate = 0.16;
+            const totalTaxAmount = subtotal * taxRate;
+            const totalAmount = subtotal + totalTaxAmount;
+
             // 1. Create Purchase Order Header
             const [newOrder] = await tx.insert(orders).values({
                 organizationId,
                 entityId,
                 status,
-                type: 'PURCHASE', // Explicit check
-                totalAmount: '0',
+                type: 'PURCHASE',
+                subtotalAmount: subtotal.toFixed(2),
+                totalTaxAmount: totalTaxAmount.toFixed(2),
+                totalRetentionAmount: '0.00',
+                totalAmount: totalAmount.toFixed(2),
             }).returning({ id: orders.id });
 
             // 2. Insert Order Items & Totals & Add Stock
-            let subtotal = 0;
-
             for (const item of items) {
                 const itemTotal = item.quantity * item.price;
-                subtotal += itemTotal;
+                const itemTax = itemTotal * taxRate;
 
                 await tx.insert(orderItems).values({
                     orderId: newOrder.id,
                     productId: item.productId,
                     quantity: item.quantity.toString(),
                     unitPrice: item.price.toString(),
+                    taxAmount: itemTax.toFixed(2),
+                    retentionAmount: '0.00'
                 });
 
-                // ADD stock if it's a product and order is CONFIRMED (or just by creating it if we assume immediate impact)
-                // The prompt says: "cuando una orden de compra se crea o pasa a estado CONFIRMED, el sistema debe SUMAR la cantidad al stock"
-                if (status === 'CONFIRMED' || status === 'DRAFT') { // Assuming DRAFT is rare for simple flows, let's just add it on creation if not CANCELLED
+                if (status === 'CONFIRMED') {
                     const product = productMap.get(item.productId);
                     if (product && product.type === 'PRODUCT') {
                         const [updated] = await tx.update(products)
-                            .set({ stock: sql`${products.stock} + ${item.quantity}` })
+                            .set({
+                                stock: sql`${products.stock} + ${item.quantity}`,
+                                cost: item.price.toString()
+                            })
                             .where(eq(products.id, item.productId))
                             .returning({ stock: products.stock });
 
@@ -133,16 +147,6 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
                     }
                 }
             }
-
-            // 3. Calculate Final Totals (IVA 16%)
-            const taxRate = 0.16;
-            const tax = subtotal * taxRate;
-            const total = subtotal + tax;
-
-            // 4. Update Order with Total
-            await tx.update(orders)
-                .set({ totalAmount: total.toFixed(2) })
-                .where(eq(orders.id, newOrder.id));
         });
 
         revalidatePath("/dashboard/purchases");

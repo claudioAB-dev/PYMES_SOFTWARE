@@ -82,6 +82,8 @@ export async function createOrganizationAction(input: CreateOrganizationInput) {
 
     if (refTokenCookie) {
         accountantIdToLink = verifyInviteToken(refTokenCookie);
+    } else if (user.user_metadata?.invited_by_ref) {
+        accountantIdToLink = user.user_metadata.invited_by_ref;
     }
 
     try {
@@ -107,13 +109,19 @@ export async function createOrganizationAction(input: CreateOrganizationInput) {
 
             // 3. Create Membership (Accountant) if reverse invite exists
             if (accountantIdToLink) {
-                await tx.insert(memberships).values({
-                    userId: accountantIdToLink,
-                    organizationId: newOrg.id,
-                    role: "ACCOUNTANT",
-                });
-                // Clear the cookie so it doesn't get applied strictly randomly later
-                cookieStore.delete('axioma_ref_token');
+                try {
+                    await tx.insert(memberships).values({
+                        userId: accountantIdToLink,
+                        organizationId: newOrg.id,
+                        role: "ACCOUNTANT",
+                    });
+                    // Clear the cookie so it doesn't get applied strictly randomly later
+                    if (refTokenCookie) {
+                        cookieStore.delete('axioma_ref_token');
+                    }
+                } catch (inviteErr) {
+                    console.error("Error silencioso al vincular al contador:", inviteErr);
+                }
             }
         });
     } catch (err: unknown) {

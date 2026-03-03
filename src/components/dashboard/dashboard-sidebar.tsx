@@ -5,14 +5,12 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
     LayoutDashboard,
-    Users,
     ShoppingCart,
+    ShoppingBag,
     Settings,
     Package,
-    CreditCard,
-    Briefcase,
-    Receipt,
-    Wallet,
+    Users,
+    Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -31,52 +29,34 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
             color: "text-sky-500",
         },
         {
-            label: "Clientes & Prov.",
+            label: "Directorio / PyMEs",
             icon: Users,
             href: "/dashboard/entities",
             color: "text-violet-500",
         },
         {
-            label: "Compras",
-            icon: ShoppingCart, // Reusing ShoppingCart or a similar icon; we'll assume lucide-react has it
-            href: "/dashboard/purchases",
-            color: "text-emerald-500",
-        },
-        {
-            label: "Ventas",
+            label: "Ventas / Cotizaciones",
             icon: ShoppingCart,
             href: "/dashboard/orders",
             color: "text-pink-700",
         },
         {
-            label: "Cuentas x Cobrar",
-            icon: CreditCard,
-            href: "/dashboard/receivables",
-            color: "text-blue-500",
-        },
-        {
-            label: "Productos",
-            icon: Package,
-            href: "/dashboard/products",
-            color: "text-orange-700",
-        },
-        {
-            label: "R. Humanos",
-            icon: Briefcase,
-            href: "/dashboard/hr",
-            color: "text-indigo-500",
-        },
-        {
-            label: "Nóminas",
-            icon: Receipt,
-            href: "/dashboard/payroll",
-            color: "text-teal-500",
+            label: "Compras",
+            icon: ShoppingBag,
+            href: "/dashboard/purchases",
+            color: "text-blue-600",
         },
         {
             label: "Tesorería",
-            icon: Wallet,
+            icon: Landmark,
             href: "/dashboard/treasury",
-            color: "text-yellow-500",
+            color: "text-emerald-500",
+        },
+        {
+            label: "Inventario",
+            icon: Package,
+            href: "/dashboard/products",
+            color: "text-orange-700",
         },
         {
             label: "Configuración",

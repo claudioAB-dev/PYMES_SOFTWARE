@@ -9,6 +9,8 @@ export const productSchema = z.object({
     price: z
         .string()
         .regex(/^\d+(\.\d{1,2})?$/, "Ingresa un monto válido (ej. 100.50)"),
+    priceIncludesVat: z.boolean().optional(),
+    cost: z.coerce.number().min(0, "El costo no puede ser negativo"),
     stock: z.coerce
         .number()
         .int("El stock debe ser un número entero")

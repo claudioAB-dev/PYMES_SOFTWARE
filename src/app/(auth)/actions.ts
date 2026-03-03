@@ -15,6 +15,7 @@ const signupSchema = z.object({
     email: z.string().email('Correo electrónico inválido'),
     password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
     isAccountant: z.boolean().default(false),
+    refId: z.string().optional(),
 })
 
 export async function login(data: z.infer<typeof loginSchema>) {
@@ -59,6 +60,7 @@ export async function signup(data: z.infer<typeof signupSchema>) {
             data: {
                 full_name: parsed.data.name,
                 is_accountant: parsed.data.isAccountant,
+                invited_by_ref: parsed.data.refId,
             }
         }
     })

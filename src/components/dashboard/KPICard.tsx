@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LucideIcon } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 
 interface KPICardProps {
     title: string;
@@ -8,11 +8,12 @@ interface KPICardProps {
     icon: LucideIcon;
     description?: string;
     isCurrency?: boolean;
+    className?: string;
 }
 
-export function KPICard({ title, value, icon: Icon, description, isCurrency = true }: KPICardProps) {
+export function KPICard({ title, value, icon: Icon, description, isCurrency = true, className }: KPICardProps) {
     return (
-        <Card>
+        <Card className={cn(className)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                     {title}

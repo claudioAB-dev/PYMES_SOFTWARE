@@ -86,7 +86,7 @@ export const products = pgTable("products", {
     price: decimal("price", { precision: 12, scale: 2 }).default('0').notNull(),
     stock: decimal("stock", { precision: 12, scale: 2 }).default('0').notNull(), // Using decimal for stock to allow fractional units if needed, though zod uses int validation I'll stick to decimal for flexibility or integer if strictly requested. User said "stock: z.number().int()". I'll use integer in DB for strictness if requested, but decimal is safer for general ERPs. User requirement: "stock: z.number().int()". I'll use integer in DB.
     archived: boolean("archived").default(false).notNull(),
-    // buyPrice: decimal("buy_price", { precision: 12, scale: 2 }).default('0'), // Deprecated/Unused for now
+    cost: decimal("cost", { precision: 12, scale: 2 }).default('0').notNull(),
     // sellPrice: decimal("sell_price", { precision: 12, scale: 2 }).default('0'), // Deprecated/Unused for now
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -100,6 +100,9 @@ export const orders = pgTable("orders", {
     type: orderTypeEnum("type").notNull(),
     status: orderStatusEnum("status").default('DRAFT').notNull(),
     paymentStatus: paymentStatusEnum("payment_status").default('UNPAID').notNull(),
+    subtotalAmount: decimal("subtotal_amount", { precision: 12, scale: 2 }).default('0'),
+    totalTaxAmount: decimal("total_tax_amount", { precision: 12, scale: 2 }).default('0'),
+    totalRetentionAmount: decimal("total_retention_amount", { precision: 12, scale: 2 }).default('0'),
     totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default('0'),
     isInvoiced: boolean("is_invoiced").default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -113,6 +116,8 @@ export const orderItems = pgTable("order_items", {
     productId: uuid("product_id").references(() => products.id).notNull(),
     quantity: decimal("quantity", { precision: 12, scale: 2 }).notNull(),
     unitPrice: decimal("unit_price", { precision: 12, scale: 2 }).notNull(),
+    taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }).default('0').notNull(),
+    retentionAmount: decimal("retention_amount", { precision: 12, scale: 2 }).default('0').notNull(),
 });
 
 // 8. Payments

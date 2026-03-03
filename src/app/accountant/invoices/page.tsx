@@ -11,13 +11,28 @@ export const metadata: Metadata = {
 
 // Datos obtenidos de la DB mediante Drizzle ORM
 import { cookies } from "next/headers";
-import { getActiveOrgId, validateAccountantAccess } from "@/lib/accountant/context";
+import { validateAccountantAccess } from "@/lib/accountant/context";
 import { db } from "@/db";
 import { fiscalDocuments } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default async function InvoicesPage() {
-    const organizationId = await getActiveOrgId();
+    const cookieStore = await cookies();
+    const organizationId = cookieStore.get('axioma_active_org')?.value;
+
+    if (!organizationId) {
+        return (
+            <div className="flex-1 space-y-6 xl:p-8 p-6 flex flex-col justify-center min-h-[50vh]">
+                <EmptyState
+                    icon={Building2}
+                    title="Ningún cliente seleccionado"
+                    description="Selecciona una empresa en el menú superior o invita a tu primer cliente para ver sus facturas."
+                />
+            </div>
+        );
+    }
+
     await validateAccountantAccess(organizationId);
 
     // Fetching data from the DB filtering strictly by organization_id

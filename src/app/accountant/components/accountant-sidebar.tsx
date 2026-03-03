@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, Server, Scale } from "lucide-react";
+import { LayoutDashboard, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function AccountantSidebar() {
@@ -11,28 +11,16 @@ export function AccountantSidebar() {
 
     const routes = [
         {
-            label: "Panel Principal",
+            label: "Mi Dashboard",
             icon: LayoutDashboard,
             href: "/accountant",
             color: "text-sky-500",
         },
         {
-            label: "Gestión de Cartera",
+            label: "Mis Clientes",
             icon: Users,
             href: "/accountant/organizations",
             color: "text-indigo-500",
-        },
-        {
-            label: "Sincronización SAT",
-            icon: Server,
-            href: "/accountant/sat-sync",
-            color: "text-emerald-500",
-        },
-        {
-            label: "Conciliación Fiscal",
-            icon: Scale,
-            href: "/accountant/reconciliation",
-            color: "text-amber-500",
         },
     ];
 

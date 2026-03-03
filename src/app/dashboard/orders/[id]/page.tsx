@@ -203,11 +203,13 @@ export default async function OrderDetailsPage({ params }: PageProps) {
                             </div>
 
                             <div className="pt-2">
-                                <RegisterPaymentSheet
-                                    orderId={order.id}
-                                    pendingBalance={pendingBalance}
-                                    accounts={accounts}
-                                />
+                                {(order.paymentStatus === 'UNPAID' || order.paymentStatus === 'PARTIAL') && order.status === 'CONFIRMED' && (
+                                    <RegisterPaymentSheet
+                                        orderId={order.id}
+                                        pendingBalance={pendingBalance}
+                                        accounts={accounts}
+                                    />
+                                )}
                             </div>
                         </CardContent>
                     </Card>

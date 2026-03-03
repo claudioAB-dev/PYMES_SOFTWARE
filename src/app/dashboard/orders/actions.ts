@@ -120,56 +120,72 @@ export async function createOrder(input: CreateOrderInput) {
         }
     }
 
-    // --- Validate Stock ---
     const productIds = items.map(i => i.productId);
-    const dbProducts = await db.query.products.findMany({
-        where: inArray(products.id, productIds),
-    });
-
-    const productMap = new Map(dbProducts.map(p => [p.id, p]));
-
-    for (const item of items) {
-        const product = productMap.get(item.productId);
-        if (!product) {
-            return { error: `Producto no encontrado: ${item.productId}` };
-        }
-
-        if (product.type === 'PRODUCT') {
-            const currentStock = Number(product.stock);
-            if (currentStock < item.quantity) {
-                return { error: `Stock insuficiente para ${product.name}. Disponible: ${currentStock}, Solicitado: ${item.quantity}` };
-            }
-        }
-    }
 
     try {
         await db.transaction(async (tx) => {
-            // 1. Create Order Header
+            // Fetch products inside transaction to ensure consistent data and stock validation
+            const dbProducts = await tx.query.products.findMany({
+                where: inArray(products.id, productIds),
+            });
+            const productMap = new Map(dbProducts.map(p => [p.id, p]));
+
+            // 1. Calculate Server-Side Totals
+            let subtotal = 0;
+            for (const item of items) {
+                subtotal += item.quantity * item.price;
+            }
+
+            const taxRate = 0.16;
+            const retentionRate = 0.0125;
+            const totalTaxAmount = subtotal * taxRate;
+            const totalRetentionAmount = subtotal * retentionRate;
+            const totalAmount = subtotal + totalTaxAmount - totalRetentionAmount;
+
+            // 2. Create Order Header with totals
             const [newOrder] = await tx.insert(orders).values({
                 organizationId,
                 entityId,
                 status,
                 type: 'SALE',
-                totalAmount: '0',
+                subtotalAmount: subtotal.toFixed(2),
+                totalTaxAmount: totalTaxAmount.toFixed(2),
+                totalRetentionAmount: totalRetentionAmount.toFixed(2),
+                totalAmount: totalAmount.toFixed(2),
             }).returning({ id: orders.id });
 
-            // 2. Insert Order Items & Calculate Totals & Deduct Stock
-            let subtotal = 0;
-
+            // 3. Insert Order Items & Deduct Stock
             for (const item of items) {
-                const itemTotal = item.quantity * item.price;
-                subtotal += itemTotal;
+                const product = productMap.get(item.productId);
+                if (!product) {
+                    throw new Error(`Producto no encontrado: ${item.productId}`);
+                }
 
+                // Check stock (Validation inside transaction)
+                if (status === 'CONFIRMED' && product.type === 'PRODUCT') {
+                    const currentStock = Number(product.stock);
+                    if (currentStock < item.quantity) {
+                        // Throws error to rollback the transaction cleanly and return error
+                        throw new Error(`Stock insuficiente para ${product.name}. Disponible: ${currentStock}, Solicitado: ${item.quantity}`);
+                    }
+                }
+
+                const itemTotal = item.quantity * item.price;
+                const itemTax = itemTotal * taxRate;
+                const itemRetention = itemTotal * retentionRate;
+
+                // Insert into orderItems with tax and retention
                 await tx.insert(orderItems).values({
                     orderId: newOrder.id,
                     productId: item.productId,
                     quantity: item.quantity.toString(),
                     unitPrice: item.price.toString(),
+                    taxAmount: itemTax.toFixed(2),
+                    retentionAmount: itemRetention.toFixed(2),
                 });
 
-                // Deduct stock if it's a product
-                const product = productMap.get(item.productId);
-                if (product && product.type === 'PRODUCT') {
+                // Deduct stock if it's a confirmed sale and a product
+                if (status === 'CONFIRMED' && product.type === 'PRODUCT') {
                     const [updated] = await tx.update(products)
                         .set({ stock: sql`${products.stock} - ${item.quantity}` })
                         .where(eq(products.id, item.productId))
@@ -178,6 +194,7 @@ export async function createOrder(input: CreateOrderInput) {
                     const newStock = Number(updated.stock);
                     const previousStock = newStock + item.quantity;
 
+                    // Insert movement
                     await tx.insert(inventoryMovements).values({
                         organizationId,
                         productId: item.productId,
@@ -190,24 +207,18 @@ export async function createOrder(input: CreateOrderInput) {
                     });
                 }
             }
-
-            // 3. Calculate Final Totals (IVA 16%)
-            const taxRate = 0.16;
-            const tax = subtotal * taxRate;
-            const total = subtotal + tax;
-
-            // 4. Update Order with Total
-            await tx.update(orders)
-                .set({ totalAmount: total.toFixed(2) })
-                .where(eq(orders.id, newOrder.id));
         });
 
-        // 5. Revalidate
+        // 4. Revalidate
         revalidatePath("/dashboard/orders");
         return { success: true };
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error creating order:", error);
+        // Custom error messages thrown inside the transaction
+        if (error.message && (error.message.includes("Stock insuficiente") || error.message.includes("Producto no encontrado"))) {
+            return { error: error.message };
+        }
         return { error: "Error al crear la orden. Por favor intente de nuevo." };
     }
 }
@@ -230,37 +241,45 @@ export async function deleteOrder(orderId: string) {
 
     try {
         await db.transaction(async (tx) => {
-            // 1. Get Order Items to restore stock
-            const items = await tx.query.orderItems.findMany({
-                where: eq(orderItems.orderId, orderId),
+            // 1. Get Order and Items to check status and restore stock
+            const order = await tx.query.orders.findFirst({
+                where: eq(orders.id, orderId),
                 with: {
-                    product: true,
+                    items: {
+                        with: {
+                            product: true,
+                        }
+                    }
                 }
             });
 
-            // 2. Restore Stock
-            for (const item of items) {
-                if (item.product.type === 'PRODUCT') {
-                    // Ensure numeric addition even if quantity is string
-                    const [updated] = await tx.update(products)
-                        .set({ stock: sql`${products.stock} + ${Number(item.quantity)}` })
-                        .where(eq(products.id, item.productId))
-                        .returning({ stock: products.stock });
+            if (!order) return;
 
-                    const newStock = Number(updated.stock);
-                    const previousStock = newStock - Number(item.quantity);
+            // 2. Restore Stock only if it was CONFIRMED
+            if (order.status === 'CONFIRMED') {
+                for (const item of order.items) {
+                    if (item.product.type === 'PRODUCT') {
+                        // Ensure numeric addition even if quantity is string
+                        const [updated] = await tx.update(products)
+                            .set({ stock: sql`${products.stock} + ${Number(item.quantity)}` })
+                            .where(eq(products.id, item.productId))
+                            .returning({ stock: products.stock });
 
-                    await tx.insert(inventoryMovements).values({
-                        organizationId,
-                        productId: item.productId,
-                        type: 'IN_RETURN',
-                        quantity: item.quantity.toString(),
-                        previousStock: previousStock.toString(),
-                        newStock: newStock.toString(),
-                        referenceId: orderId,
-                        notes: "Order deleted",
-                        createdBy: user.id
-                    });
+                        const newStock = Number(updated.stock);
+                        const previousStock = newStock - Number(item.quantity);
+
+                        await tx.insert(inventoryMovements).values({
+                            organizationId,
+                            productId: item.productId,
+                            type: 'IN_RETURN',
+                            quantity: item.quantity.toString(),
+                            previousStock: previousStock.toString(),
+                            newStock: newStock.toString(),
+                            referenceId: orderId,
+                            notes: "Order deleted",
+                            createdBy: user.id
+                        });
+                    }
                 }
             }
 
@@ -319,112 +338,6 @@ export async function getOrderDetails(orderId: string) {
     return order;
 }
 
-export async function registerPayment(orderId: string, amount: number, method: 'CASH' | 'TRANSFER' | 'CARD' | 'OTHER', accountId: string, reference?: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-        return { error: "No autorizado" };
-    }
-
-    const userMemberships = await db.query.memberships.findMany({
-        where: eq(memberships.userId, user.id),
-    });
-
-    if (userMemberships.length === 0) return { error: "No organization found" };
-    const organizationId = userMemberships[0].organizationId;
-
-    try {
-        await db.transaction(async (tx) => {
-            // 1. Get Order & Existing Payments
-            const order = await tx.query.orders.findFirst({
-                where: and(
-                    eq(orders.id, orderId),
-                    eq(orders.organizationId, organizationId)
-                ),
-                with: {
-                    payments: true,
-                }
-            });
-
-            if (!order) throw new Error("Orden no encontrada");
-
-            // 2. Validate Amount
-            const totalPaid = order.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-            const pendingBalance = Number(order.totalAmount) - totalPaid;
-
-            if (amount > pendingBalance) {
-                // Allow a small margin of error for floating point issues if specific implementation needed, but generally stick to strict for money.
-                // However, for user experience, let's just reject.
-                throw new Error(`El monto excede el saldo pendiente. Saldo: ${pendingBalance.toFixed(2)}`);
-            }
-
-            if (amount <= 0) {
-                throw new Error("El monto debe ser mayor a 0");
-            }
-
-            // 2.5 Verify Account
-            const account = await tx.query.financialAccounts.findFirst({
-                where: and(
-                    eq(financialAccounts.id, accountId),
-                    eq(financialAccounts.organizationId, organizationId)
-                )
-            });
-
-            if (!account) throw new Error("Cuenta financiera no encontrada");
-
-            // 3. Register Payment
-            await tx.insert(payments).values({
-                organizationId,
-                orderId,
-                amount: amount.toString(),
-                method,
-                reference,
-            });
-
-            // 3.5 Update Treasury
-            await tx.insert(treasuryTransactions).values({
-                organizationId,
-                accountId,
-                type: 'INCOME',
-                category: 'SALE',
-                amount: amount.toString(),
-                referenceId: orderId,
-                description: reference ? `Pago venta: ${reference}` : `Pago venta: ${orderId.substring(0, 8)}`,
-                createdBy: user.id,
-            });
-
-            await tx.update(financialAccounts)
-                .set({ balance: sql`${financialAccounts.balance} + ${amount}` })
-                .where(eq(financialAccounts.id, accountId));
-
-            // 4. Update Order Status
-            const newTotalPaid = totalPaid + amount;
-            const orderTotal = Number(order.totalAmount);
-
-            let newStatus: 'UNPAID' | 'PARTIAL' | 'PAID' = 'PARTIAL';
-            if (newTotalPaid >= orderTotal - 0.01) { // Tolerance for rounding
-                newStatus = 'PAID';
-            } else if (newTotalPaid > 0) {
-                newStatus = 'PARTIAL';
-            } else {
-                newStatus = 'UNPAID';
-            }
-
-            await tx.update(orders)
-                .set({ paymentStatus: newStatus })
-                .where(eq(orders.id, orderId));
-        });
-
-        revalidatePath(`/dashboard/orders/${orderId}`);
-        revalidatePath("/dashboard/orders");
-        return { success: true };
-
-    } catch (error: any) {
-        console.error("Error registering payment:", error);
-        return { error: error.message || "Error al registrar pago" };
-    }
-}
 
 export async function updateOrderStatus(orderId: string, newStatus: 'CONFIRMED' | 'CANCELLED') {
     const supabase = await createClient();
@@ -461,8 +374,8 @@ export async function updateOrderStatus(orderId: string, newStatus: 'CONFIRMED' 
             if (!order) throw new Error("Orden no encontrada");
 
             // 2. Handle Transitions
-            if (newStatus === 'CANCELLED' && order.status !== 'CANCELLED') {
-                // Restore Stock
+            // Restore Stock if transitioning FROM CONFIRMED TO CANCELLED
+            if (newStatus === 'CANCELLED' && order.status === 'CONFIRMED') {
                 for (const item of order.items) {
                     if (item.product.type === 'PRODUCT') {
                         const [updated] = await tx.update(products)
@@ -488,16 +401,14 @@ export async function updateOrderStatus(orderId: string, newStatus: 'CONFIRMED' 
                 }
             }
 
-            // Note: If transitioning FROM Cancelled TO Confirmed/Draft, we would need to DEDUCT stock again.
-            // For now, let's assume one-way flow or re-deduct if needed.
-            // If user uncancels, we should check stock.
-            if (order.status === 'CANCELLED' && newStatus === 'CONFIRMED') {
-                // Check and Deduct Stock again
+            // Deduct Stock if transitioning FROM CANCELLED/DRAFT TO CONFIRMED
+            if ((order.status === 'CANCELLED' || order.status === 'DRAFT') && newStatus === 'CONFIRMED') {
+                // Check and Deduct Stock
                 for (const item of order.items) {
                     if (item.product.type === 'PRODUCT') {
                         const currentStock = Number(item.product.stock);
                         if (currentStock < Number(item.quantity)) {
-                            throw new Error(`Stock insuficiente para reactivar orden: ${item.product.name}`);
+                            throw new Error(`Stock insuficiente para producto: ${item.product.name}`);
                         }
 
                         const [updated] = await tx.update(products)
@@ -516,7 +427,7 @@ export async function updateOrderStatus(orderId: string, newStatus: 'CONFIRMED' 
                             previousStock: previousStock.toString(),
                             newStock: newStock.toString(),
                             referenceId: orderId,
-                            notes: "Order reactivated",
+                            notes: order.status === 'DRAFT' ? "Quote converted to sale" : "Order reactivated",
                             createdBy: user.id
                         });
                     }
@@ -536,5 +447,37 @@ export async function updateOrderStatus(orderId: string, newStatus: 'CONFIRMED' 
     } catch (error: any) {
         console.error("Error updating order status:", error);
         return { error: error.message || "Error al actualizar estado" };
+    }
+}
+
+export async function createQuickClient(data: { commercialName: string, taxId?: string }) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: "No autorizado" };
+    }
+
+    const userMemberships = await db.query.memberships.findMany({
+        where: eq(memberships.userId, user.id),
+    });
+
+    if (userMemberships.length === 0) return { error: "No organization found" };
+    const organizationId = userMemberships[0].organizationId;
+
+    try {
+        const [newEntity] = await db.insert(entities).values({
+            organizationId,
+            type: 'CLIENT',
+            commercialName: data.commercialName,
+            taxId: data.taxId || null,
+        }).returning({ id: entities.id, commercialName: entities.commercialName });
+
+        revalidatePath("/dashboard/orders/new");
+        revalidatePath("/dashboard/orders");
+        return { success: true, data: newEntity };
+    } catch (error: any) {
+        console.error("Error creating quick client:", error);
+        return { error: "Error al crear el cliente. Es posible que el RFC ya esté en uso." };
     }
 }

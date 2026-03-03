@@ -1,150 +1,210 @@
-import { getActiveOrgId, validateAccountantAccess } from "@/lib/accountant/context";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { fiscalDocuments, organizations } from "@/db/schema";
-import { eq, and, sql, desc } from "drizzle-orm";
-import { Badge } from "@/components/ui/badge";
-import { KPICard } from "@/components/dashboard/KPICard";
-import { TrendingUp, TrendingDown, Landmark, CalendarClock, Building2 } from "lucide-react";
+import { memberships, orders } from "@/db/schema";
+import { eq, and, sql, inArray } from "drizzle-orm";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Link2, Building2, HandCoins, Building } from "lucide-react";
+import { startOfMonth, endOfMonth, format } from "date-fns";
+import { es } from "date-fns/locale";
+import { CopyLinkButton } from "./components/copy-link-button";
+
+export const dynamic = 'force-dynamic';
+
+function formatCurrency(amount: number) {
+    return new Intl.NumberFormat('es-MX', {
+        style: 'currency',
+        currency: 'MXN'
+    }).format(amount);
+}
 
 export default async function AccountantDashboard() {
-    let organizationId: string;
-    try {
-        organizationId = await getActiveOrgId();
-        await validateAccountantAccess(organizationId);
-    } catch (error) {
-        return (
-            <div className="p-8 text-center" suppressHydrationWarning>
-                <div className="bg-white border rounded-2xl p-12 max-w-2xl mx-auto mt-12 shadow-sm">
-                    <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-medium text-slate-900 mb-2">Acceso Denegado</h3>
-                    <p className="text-slate-500">
-                        No tienes acceso a ninguna empresa o debes iniciar sesión nuevamente.
-                    </p>
-                </div>
-            </div>
-        );
+    // 1. Autenticación y Carga de Datos
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect("/login");
     }
 
-    const org = await db.query.organizations.findFirst({
-        where: eq(organizations.id, organizationId)
+    const userId = user.id;
+
+    // Obtener organizaciones donde el usuario es ACCOUNTANT
+    const userMemberships = await db.query.memberships.findMany({
+        where: and(
+            eq(memberships.userId, userId),
+            eq(memberships.role, 'ACCOUNTANT')
+        ),
+        with: {
+            organization: true
+        }
     });
 
-    if (!org) {
-        return (
-            <div className="p-8 text-center text-muted-foreground" suppressHydrationWarning>
-                Empresa no encontrada.
-            </div>
-        );
-    }
+    const orgs = userMemberships.map(m => m.organization);
+    const orgIds = orgs.map(org => org.id);
 
-    // Current month boundaries
+    // 2. Interfaz - Sección Superior (Adquisición y Comisiones)
+    // Calcular comisiones proyectadas (MVP: $500 por cada PyME)
+    const projectedCommissions = orgs.length * 500;
+
+    // Link de invitación dinámico
+    const invitationLink = `https://axiomaerp.com/register?ref=${userId}`;
+
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const currentMonthStart = startOfMonth(now);
+    const currentMonthEnd = endOfMonth(now);
+    const monthName = format(now, "MMMM", { locale: es });
+    const currentMonthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
-    // Queries directly via Drizzle
-    const data = await db.select({
-        type: fiscalDocuments.type,
-        totalAmount: sql<number>`sum(${fiscalDocuments.total})`,
-        totalTax: sql<number>`sum(${fiscalDocuments.tax})`
-    }).from(fiscalDocuments)
-        .where(
-            and(
-                eq(fiscalDocuments.organizationId, organizationId),
-                sql`${fiscalDocuments.issueDate} >= ${startOfMonth.toISOString()}`,
-                sql`${fiscalDocuments.issueDate} <= ${endOfMonth.toISOString()}`
+    // 3. Interfaz - Tabla de Clientes (PyMEs)
+    // Obtener las métricas por PyME del mes en curso leyendo exclusivamente de orders (status = CONFIRMED)
+    let orgMetrics: Record<string, { totalVentas: number; ivaTrasladado: number; retenciones: number }> = {};
+
+    if (orgIds.length > 0) {
+        const metricsData = await db.select({
+            organizationId: orders.organizationId,
+            subtotalAmount: sql<number>`sum(${orders.subtotalAmount})`,
+            totalTaxAmount: sql<number>`sum(${orders.totalTaxAmount})`,
+            totalRetentionAmount: sql<number>`sum(${orders.totalRetentionAmount})`,
+        })
+            .from(orders)
+            .where(
+                and(
+                    inArray(orders.organizationId, orgIds),
+                    eq(orders.status, 'CONFIRMED'),
+                    eq(orders.type, 'SALE'),
+                    sql`${orders.createdAt} >= ${currentMonthStart.toISOString()}`,
+                    sql`${orders.createdAt} <= ${currentMonthEnd.toISOString()}`
+                )
             )
-        )
-        .groupBy(fiscalDocuments.type);
+            .groupBy(orders.organizationId);
 
-    let ingresos = 0;
-    let egresos = 0;
-
-    data.forEach(row => {
-        if (row.type === 'I') {
-            ingresos += Number(row.totalAmount || 0);
-        }
-        if (row.type === 'E') {
-            egresos += Number(row.totalAmount || 0);
-        }
-    });
-
-    // Estimando el 16% de la diferencia entre ingresos y egresos
-    const ivaEstimado = (ingresos - egresos) * 0.16;
-
-    // Latest SAT synchronization date
-    const latestDoc = await db.query.fiscalDocuments.findFirst({
-        where: eq(fiscalDocuments.organizationId, organizationId),
-        orderBy: [desc(fiscalDocuments.createdAt)]
-    });
-
-    let syncStatus = "Sin sincronizar";
-    if (latestDoc?.createdAt) {
-        syncStatus = new Intl.DateTimeFormat("es-MX", {
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        }).format(latestDoc.createdAt);
+        orgMetrics = metricsData.reduce((acc, row) => {
+            acc[row.organizationId] = {
+                totalVentas: Number(row.subtotalAmount || 0),
+                ivaTrasladado: Number(row.totalTaxAmount || 0),
+                retenciones: Number(row.totalRetentionAmount || 0),
+            };
+            return acc;
+        }, {} as Record<string, { totalVentas: number; ivaTrasladado: number; retenciones: number }>);
     }
-
-    const uncapitalizedMonth = new Intl.DateTimeFormat('es-MX', { month: 'long' }).format(startOfMonth);
-    const currentMonthLabel = uncapitalizedMonth.charAt(0).toUpperCase() + uncapitalizedMonth.slice(1);
 
     return (
         <div className="space-y-8 max-w-6xl mx-auto" suppressHydrationWarning>
-            {/* Identity Banner */}
-            <div className="flex items-center justify-between bg-white px-6 py-4 rounded-xl shadow-sm border border-slate-200">
-                <div className="flex items-center gap-3">
-                    <div className="bg-indigo-100 p-2 rounded-lg">
-                        <Building2 className="w-5 h-5 text-indigo-700" />
-                    </div>
-                    <div>
-                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Operando como</p>
-                        <h2 className="text-lg font-bold text-slate-900">{org.name}</h2>
-                    </div>
-                </div>
-                <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm px-3 py-1 text-sm font-semibold">
-                    Sesión Activa
-                </Badge>
-            </div>
-
-            {/* Dashboard Header */}
-            <div>
-                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Dashboard General</h1>
+            {/* Header */}
+            <div suppressHydrationWarning>
+                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Panel de Partners</h1>
                 <p className="text-muted-foreground mt-1 text-lg">
-                    Resumen financiero y fiscal del mes de {currentMonthLabel}.
+                    Gestiona las PyMEs de tus clientes y tus comisiones como Partner de Axioma.
                 </p>
             </div>
 
-            {/* KPI Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <KPICard
-                    title="IVA Estimado a Pagar"
-                    value={Math.max(ivaEstimado, 0)} // Optional max 0 to not show negative VAT as "to pay", actually negative means balance in favor, so we let it be as they requested
-                    icon={Landmark}
-                    description={`Calculado al 16% de res. (${currentMonthLabel})`}
-                    isCurrency={true}
-                />
+            {/* Adquisición y Comisiones */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="border-t-4 border-t-indigo-500 shadow-sm">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-indigo-700">
+                            <Link2 className="w-5 h-5" />
+                            Tu Enlace de Invitación
+                        </CardTitle>
+                        <CardDescription>
+                            Comparte este enlace con tus clientes para que se registren en Axioma y queden vinculados a ti.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center gap-3">
+                            <code className="flex-1 bg-slate-100 p-3 rounded-md text-sm text-slate-800 break-all border border-slate-200">
+                                {invitationLink}
+                            </code>
+                            <CopyLinkButton link={invitationLink} />
+                        </div>
+                    </CardContent>
+                </Card>
 
-                <KPICard
-                    title="Ingresos Totales (CFDI)"
-                    value={ingresos}
-                    icon={TrendingUp}
-                    description={`Suma comprobantes ingreso (${currentMonthLabel})`}
-                    isCurrency={true}
-                />
-
-                <KPICard
-                    title="Estatus de Sincronización"
-                    value={syncStatus}
-                    icon={CalendarClock}
-                    description="Última descarga SAT"
-                    isCurrency={false}
-                />
+                <Card className="border-t-4 border-t-emerald-500 shadow-sm bg-emerald-50/10">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-emerald-700">
+                            <HandCoins className="w-5 h-5" />
+                            Comisiones Proyectadas ({currentMonthLabel})
+                        </CardTitle>
+                        <CardDescription>
+                            Comisión basada en la cantidad de PyMEs conectadas.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-end gap-3">
+                            <h2 className="text-4xl font-bold text-emerald-700">{formatCurrency(projectedCommissions)}</h2>
+                            <span className="text-sm text-emerald-800/70 mb-1 font-medium">/ mes</span>
+                        </div>
+                        <div className="mt-4 flex items-center gap-2 text-sm text-emerald-700/80">
+                            <Building2 className="w-4 h-4" />
+                            <span>{orgs.length} PyMEs conectadas x $500 MXN</span>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
+            {/* Tabla de Clientes (PyMEs) */}
+            <Card className="shadow-sm border-slate-200">
+                <CardHeader>
+                    <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                        <Building className="w-5 h-5 text-indigo-600" />
+                        Tus Clientes (Mes en curso: {currentMonthLabel})
+                    </CardTitle>
+                    <CardDescription>
+                        Desempeño de ventas e impuestos en el mes actual basado en órdenes confirmadas.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <Table>
+                        <TableHeader className="bg-slate-50/50">
+                            <TableRow>
+                                <TableHead className="pl-6 font-semibold">Nombre de la PyME</TableHead>
+                                <TableHead className="font-semibold text-right">Total Ventas</TableHead>
+                                <TableHead className="font-semibold text-right">IVA Trasladado</TableHead>
+                                <TableHead className="font-semibold text-right">Retenciones</TableHead>
+                                <TableHead className="font-semibold text-center pr-6">Acciones</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {orgs.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-24 text-center text-slate-500">
+                                        No tienes PyMEs vinculadas. ¡Comparte tu enlace de invitación!
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                orgs.map((org) => {
+                                    const m = orgMetrics[org.id] || { totalVentas: 0, ivaTrasladado: 0, retenciones: 0 };
+                                    return (
+                                        <TableRow key={org.id} className="hover:bg-slate-50 transition-colors">
+                                            <TableCell className="pl-6 font-medium text-slate-900 border-l-4 border-l-transparent hover:border-l-indigo-400">
+                                                {org.name}
+                                            </TableCell>
+                                            <TableCell className="text-right text-slate-700 font-medium">
+                                                {formatCurrency(m.totalVentas)}
+                                            </TableCell>
+                                            <TableCell className="text-right text-rose-600 font-medium">
+                                                {formatCurrency(m.ivaTrasladado)}
+                                            </TableCell>
+                                            <TableCell className="text-right text-slate-600 font-medium">
+                                                {formatCurrency(m.retenciones)}
+                                            </TableCell>
+                                            <TableCell className="text-center pr-6">
+                                                <Button variant="outline" size="sm">
+                                                    Ver detalles
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
         </div>
     );
 }

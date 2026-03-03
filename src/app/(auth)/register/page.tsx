@@ -5,9 +5,9 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { Loader2, Briefcase, Calculator } from 'lucide-react'
+import { Loader2, Briefcase, Calculator, CheckCircle2 } from 'lucide-react'
 
 import { signup } from '@/app/(auth)/actions'
 import { Button } from '@/components/ui/button'
@@ -42,7 +42,10 @@ const registerSchema = z
 
 type RegisterValues = z.infer<typeof registerSchema>
 
-export default function RegisterPage() {
+function RegisterFormContent() {
+    const searchParams = useSearchParams()
+    const refId = searchParams.get('ref')
+
     const [isPending, startTransition] = useTransition()
     const [role, setRole] = useState<'business' | 'accountant'>('business')
     const router = useRouter()
@@ -54,11 +57,13 @@ export default function RegisterPage() {
 
     function onSubmit(values: RegisterValues) {
         startTransition(async () => {
+            const finalRole = refId ? 'business' : role;
             const res = await signup({
                 name: values.name,
                 email: values.email,
                 password: values.password,
-                isAccountant: role === 'accountant'
+                isAccountant: finalRole === 'accountant',
+                refId: refId || undefined,
             })
             if (res?.error) {
                 toast.error('No se pudo crear la cuenta', {
@@ -82,24 +87,31 @@ export default function RegisterPage() {
                 </p>
             </div>
 
-            <Tabs defaultValue="business" className="mb-6 w-full" onValueChange={(val) => setRole(val as any)}>
-                <TabsList className="grid w-full grid-cols-2 p-1 bg-gray-100 rounded-lg">
-                    <TabsTrigger
-                        value="business"
-                        className="rounded-md flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-indigo-600 font-medium transition-all"
-                    >
-                        <Briefcase className="w-4 h-4" />
-                        Negocio
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="accountant"
-                        className="rounded-md flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-indigo-600 font-medium transition-all"
-                    >
-                        <Calculator className="w-4 h-4" />
-                        Soy Contador
-                    </TabsTrigger>
-                </TabsList>
-            </Tabs>
+            {refId ? (
+                <div className="mb-6 flex items-center justify-center p-3 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg">
+                    <CheckCircle2 className="w-4 h-4 mr-2 text-indigo-500" />
+                    Has sido invitado por tu contador
+                </div>
+            ) : (
+                <Tabs defaultValue="business" className="mb-6 w-full" onValueChange={(val) => setRole(val as any)}>
+                    <TabsList className="grid w-full grid-cols-2 p-1 bg-gray-100 rounded-lg">
+                        <TabsTrigger
+                            value="business"
+                            className="rounded-md flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-indigo-600 font-medium transition-all"
+                        >
+                            <Briefcase className="w-4 h-4" />
+                            Negocio
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="accountant"
+                            className="rounded-md flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-indigo-600 font-medium transition-all"
+                        >
+                            <Calculator className="w-4 h-4" />
+                            Soy Contador
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            )}
 
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate suppressHydrationWarning>
@@ -241,5 +253,19 @@ export default function RegisterPage() {
                 </p>
             </div>
         </div>
+    )
+}
+
+import { Suspense } from 'react'
+
+export default function RegisterPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex justify-center py-10">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+        }>
+            <RegisterFormContent />
+        </Suspense>
     )
 }

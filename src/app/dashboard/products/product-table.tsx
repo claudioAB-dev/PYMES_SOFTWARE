@@ -37,6 +37,7 @@ export type Product = {
     sku: string | null;
     type: string;
     price: string;
+    cost: string;
     stock: string;
     createdAt: Date;
     organizationId: string;
@@ -47,14 +48,6 @@ const formatCurrency = (value: string | number) => {
 }
 
 export const columns: ColumnDef<Product>[] = [
-    {
-        accessorKey: "sku",
-        header: "SKU",
-        cell: ({ row }) => {
-            const sku = row.getValue("sku");
-            return sku ? <Badge variant="secondary" className="font-mono text-xs">{String(sku)}</Badge> : <span className="text-muted-foreground text-sm">-</span>;
-        },
-    },
     {
         accessorKey: "name",
         header: "Nombre",
@@ -68,30 +61,25 @@ export const columns: ColumnDef<Product>[] = [
         }
     },
     {
-        accessorKey: "type",
-        header: "Tipo",
+        accessorKey: "sku",
+        header: "SKU",
         cell: ({ row }) => {
-            const type = row.getValue("type") as string;
-            return (
-                <div className="flex items-center gap-2">
-                    {type === "PRODUCT" ? (
-                        <Badge variant="outline" className="gap-1">
-                            <Package className="h-3 w-3" /> Producto
-                        </Badge>
-                    ) : (
-                        <Badge variant="default" className="gap-1 bg-amber-500 hover:bg-amber-600">
-                            <Zap className="h-3 w-3" fill="currentColor" /> Servicio
-                        </Badge>
-                    )}
-                </div>
-            );
+            const sku = row.getValue("sku");
+            return sku ? <Badge variant="secondary" className="font-mono text-xs">{String(sku)}</Badge> : <span className="text-muted-foreground text-sm">-</span>;
         },
     },
     {
         accessorKey: "price",
-        header: "Precio",
+        header: "Precio Venta",
         cell: ({ row }) => {
-            return <div className="font-medium">{formatCurrency(row.getValue("price"))}</div>;
+            return <div className="font-medium text-green-600">{formatCurrency(row.getValue("price"))}</div>;
+        },
+    },
+    {
+        accessorKey: "cost",
+        header: "Costo",
+        cell: ({ row }) => {
+            return <div className="font-medium text-muted-foreground">{formatCurrency(row.getValue("cost"))}</div>;
         },
     },
     {
@@ -140,15 +128,10 @@ export const columns: ColumnDef<Product>[] = [
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                        <DropdownMenuItem
-                            onClick={() => navigator.clipboard.writeText(product.id)}
-                        >
-                            Copiar ID
-                        </DropdownMenuItem>
-                        {/* Detail Action */}
                         <DropdownMenuItem asChild>
                             <Link href={`/dashboard/products/${product.id}`}>
-                                Ver Detalles / Kardex
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem

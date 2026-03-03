@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/db";
-import { financialAccounts, memberships, treasuryTransactions } from "@/db/schema";
+import { financialAccounts, memberships, treasuryTransactions, orders, payments } from "@/db/schema";
 import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -275,3 +275,122 @@ export async function updateFinancialAccount(
         return { error: "Error al actualizar la cuenta financiera" };
     }
 }
+
+export async function registerOrderPayment(orderId: string, amount: number, method: 'CASH' | 'TRANSFER' | 'CARD' | 'OTHER', accountId: string, reference?: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: "No autorizado" };
+    }
+
+    const userMemberships = await db.query.memberships.findMany({
+        where: eq(memberships.userId, user.id),
+    });
+
+    if (userMemberships.length === 0) return { error: "No organization found" };
+    const organizationId = userMemberships[0].organizationId;
+
+    try {
+        await db.transaction(async (tx) => {
+            // 1. Get Order & Existing Payments
+            const order = await tx.query.orders.findFirst({
+                where: and(
+                    eq(orders.id, orderId),
+                    eq(orders.organizationId, organizationId)
+                ),
+                with: {
+                    payments: true,
+                }
+            });
+
+            if (!order) throw new Error("Orden no encontrada");
+
+            // 2. Validate Amount
+            const totalPaid = order.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const pendingBalance = Number(order.totalAmount) - totalPaid;
+
+            if (amount > pendingBalance) {
+                throw new Error(`El monto excede el saldo pendiente. Saldo: ${pendingBalance.toFixed(2)}`);
+            }
+
+            if (amount <= 0) {
+                throw new Error("El monto debe ser mayor a 0");
+            }
+
+            // 2.5 Verify Account
+            const account = await tx.query.financialAccounts.findFirst({
+                where: and(
+                    eq(financialAccounts.id, accountId),
+                    eq(financialAccounts.organizationId, organizationId)
+                )
+            });
+
+            if (!account) throw new Error("Cuenta financiera no encontrada");
+
+            // 3. Register Payment
+            await tx.insert(payments).values({
+                organizationId,
+                orderId,
+                amount: amount.toString(),
+                method,
+                reference,
+            });
+
+            // 3.5 Update Treasury
+            const transactionType = order.type === 'SALE' ? 'INCOME' : 'EXPENSE';
+            const transactionCategory = order.type === 'SALE' ? 'SALE' : 'PURCHASE';
+
+            await tx.insert(treasuryTransactions).values({
+                organizationId,
+                accountId,
+                type: transactionType,
+                category: transactionCategory,
+                amount: amount.toString(),
+                referenceId: orderId,
+                description: reference ? `Pago ${transactionCategory.toLowerCase()}: ${reference}` : `Pago ${transactionCategory.toLowerCase()}: ${orderId.substring(0, 8)}`,
+                createdBy: user.id,
+            });
+
+            const balanceAdjustment = transactionType === 'INCOME' ? amount : -amount;
+
+            await tx.update(financialAccounts)
+                .set({ balance: sql`${financialAccounts.balance} + ${balanceAdjustment}` })
+                .where(eq(financialAccounts.id, accountId));
+
+            // 4. Update Order Status
+            const newTotalPaid = totalPaid + amount;
+            const orderTotal = Number(order.totalAmount);
+
+            let newStatus: 'UNPAID' | 'PARTIAL' | 'PAID' = 'PARTIAL';
+            if (newTotalPaid >= orderTotal - 0.01) { // Tolerance for rounding
+                newStatus = 'PAID';
+            } else if (newTotalPaid > 0) {
+                newStatus = 'PARTIAL';
+            } else {
+                newStatus = 'UNPAID';
+            }
+
+            await tx.update(orders)
+                .set({ paymentStatus: newStatus })
+                .where(eq(orders.id, orderId));
+        });
+
+        revalidatePath(`/dashboard/orders/${orderId}`);
+        revalidatePath("/dashboard/orders");
+        // Also revalidate purchases if they use the same action and different path in the future, 
+        // For now, this is enough since purchases might be at /dashboard/purchases/[id]
+        if (orderId) {
+            revalidatePath(`/dashboard/purchases/${orderId}`);
+            revalidatePath("/dashboard/purchases");
+        }
+        revalidatePath("/dashboard/treasury");
+
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("Error registering order payment:", error);
+        return { error: error.message || "Error al registrar pago" };
+    }
+}
+

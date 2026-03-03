@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { db } from "@/db";
 import { fiscalDocuments, satRequests } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -13,8 +14,14 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function uploadManualXML(formData: FormData, organizationId: string) {
+export async function uploadManualXML(formData: FormData, _clientOrgId: string) {
     try {
+        const cookieStore = await cookies();
+        const organizationId = cookieStore.get('axioma_active_org')?.value;
+        if (!organizationId) {
+            throw new Error("No hay ninguna organización seleccionada en la sesión.");
+        }
+
         const file = formData.get("file") as File | null;
         if (!file) {
             throw new Error("No se proporcionó ningún archivo XML.");
@@ -40,12 +47,15 @@ export async function uploadManualXML(formData: FormData, organizationId: string
     }
 }
 
-import { getActiveOrgId } from "@/lib/accountant/context";
 import { inngest } from "@/lib/inngest/client";
 
 export async function requestMassiveSync(month: number, year: number) {
     try {
-        const organizationId = await getActiveOrgId();
+        const cookieStore = await cookies();
+        const organizationId = cookieStore.get('axioma_active_org')?.value;
+        if (!organizationId) {
+            throw new Error("No hay ninguna organización seleccionada en la sesión.");
+        }
 
         // Generate start and end dates for the selected month
         // month is 1-indexed (1=January), so month - 1 for Date constructor
@@ -83,7 +93,11 @@ export async function requestMassiveSync(month: number, year: number) {
 
 export async function requestMockMassiveSync() {
     try {
-        const organizationId = await getActiveOrgId();
+        const cookieStore = await cookies();
+        const organizationId = cookieStore.get('axioma_active_org')?.value;
+        if (!organizationId) {
+            throw new Error("No hay ninguna organización seleccionada en la sesión.");
+        }
 
         // We use the current month for mock
         const now = new Date();
@@ -120,8 +134,14 @@ export async function requestMockMassiveSync() {
     }
 }
 
-export async function getSatRequests(organizationId: string) {
+export async function getSatRequests(_clientOrgId?: string) {
     try {
+        const cookieStore = await cookies();
+        const organizationId = cookieStore.get('axioma_active_org')?.value;
+        if (!organizationId) {
+            throw new Error("No hay ninguna organización seleccionada en la sesión.");
+        }
+
         const requests = await db.select()
             .from(satRequests)
             .where(eq(satRequests.organizationId, organizationId))

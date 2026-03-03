@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { toast } from "sonner"
-import { registerPayment } from "@/app/dashboard/orders/actions"
+import { registerOrderPayment } from "@/app/dashboard/treasury/actions"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -71,8 +71,7 @@ export function RegisterPaymentSheet({ orderId, pendingBalance, accounts }: Regi
                 form.setError("amount", { message: "El monto excede el saldo pendiente" })
                 return
             }
-
-            const result = await registerPayment(orderId, values.amount, values.method, values.accountId, values.reference)
+            const result = await registerOrderPayment(orderId, values.amount, values.method, values.accountId, values.reference)
 
             if (result?.error) {
                 toast.error(result.error)

@@ -62,12 +62,19 @@ export async function createProduct(input: ProductInput) {
             return { error: "Datos inválidos" };
         }
 
+        const IVA_RATE = 1.16;
+        const parsedPrice = parseFloat(validatedFields.data.price);
+        const finalPrice = validatedFields.data.priceIncludesVat
+            ? (parsedPrice / IVA_RATE)
+            : parsedPrice;
+
         await db.insert(products).values({
             organizationId: organizationId,
             name: validatedFields.data.name,
             sku: validatedFields.data.sku || null,
             type: validatedFields.data.type,
-            price: validatedFields.data.price,
+            price: finalPrice.toFixed(6), // We store the internal base price with some precision, or toFixed(2)
+            cost: validatedFields.data.cost.toString(),
             stock: validatedFields.data.stock?.toString() || "0",
             uom: "PZA", // Default
         });
@@ -112,13 +119,17 @@ export async function updateProduct(productId: string, input: Partial<ProductInp
         const { organizationId } = await getOrganizationId();
 
         // Validation logic here if needed for partial updates
+        const updateData: any = {};
+        if (input.name !== undefined) updateData.name = input.name;
+        if (input.sku !== undefined) updateData.sku = input.sku || null;
+        if (input.type !== undefined) updateData.type = input.type;
+        if (input.price !== undefined) updateData.price = input.price;
+        if (input.cost !== undefined) updateData.cost = input.cost.toString();
+        if (input.stock !== undefined) updateData.stock = input.stock.toString();
 
         await db
             .update(products)
-            .set({
-                // ... map fields
-                // updated_at: new Date(),
-            })
+            .set(updateData)
             .where(and(eq(products.id, productId), eq(products.organizationId, organizationId)));
 
         revalidatePath("/dashboard/products");

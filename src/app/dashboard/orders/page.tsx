@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { orders, memberships, entities } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { Button } from "@/components/ui/button";
-import { Plus, ShoppingCart } from "lucide-react";
+import { Plus, ShoppingCart, FileText, CheckCircle } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import Link from "next/link";
 import {
@@ -15,6 +15,8 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { updateOrderStatus } from "./actions";
 
 export const dynamic = 'force-dynamic';
 
@@ -39,10 +41,82 @@ export default async function OrdersPage() {
         orderBy: [desc(orders.createdAt)],
     });
 
+    const confirmedOrders = ordersData.filter(o => o.status === 'CONFIRMED');
+    const draftOrders = ordersData.filter(o => o.status === 'DRAFT');
+
+    const renderTable = (data: typeof ordersData, statusType: 'CONFIRMED' | 'DRAFT') => (
+        <div className="border rounded-md">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Folio</TableHead>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {data.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={6} className="text-center h-48 p-0">
+                                <EmptyState
+                                    icon={ShoppingCart}
+                                    title={`No hay ${statusType === 'CONFIRMED' ? 'ventas confirmadas' : 'cotizaciones'}`}
+                                    description={statusType === 'CONFIRMED' ? "Crea tu primera orden para comenzar a vender." : "Crea una cotización para enviarla a tu cliente."}
+                                />
+                            </TableCell>
+                        </TableRow>
+                    ) : (
+                        data.map((order) => (
+                            <TableRow key={order.id}>
+                                <TableCell className="font-mono">
+                                    <Link href={`/dashboard/orders/${order.id}`} className="hover:underline text-blue-600">
+                                        {order.id.slice(0, 8)}
+                                    </Link>
+                                </TableCell>
+                                <TableCell>{order.entity.commercialName}</TableCell>
+                                <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                                <TableCell>
+                                    <Badge variant={order.status === 'CONFIRMED' ? 'default' : 'secondary'}>
+                                        {order.status === 'CONFIRMED' ? 'Confirmado' : 'Borrador'}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className="text-right font-medium">
+                                    ${Number(order.totalAmount).toFixed(2)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex justify-end gap-2">
+                                        <Button variant="ghost" size="icon" asChild title="Generar PDF">
+                                            <a href={`/api/documents/orders/${order.id}/pdf`} target="_blank">
+                                                <FileText className="h-4 w-4" />
+                                            </a>
+                                        </Button>
+                                        {order.status === 'DRAFT' && (
+                                            <form action={async () => {
+                                                "use server";
+                                                await updateOrderStatus(order.id, 'CONFIRMED');
+                                            }}>
+                                                <Button variant="outline" size="sm" type="submit" title="Convertir a Venta">
+                                                    <CheckCircle className="mr-2 h-4 w-4" /> Convertir
+                                                </Button>
+                                            </form>
+                                        )}
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    )}
+                </TableBody>
+            </Table>
+        </div>
+    );
+
     return (
         <div className="container mx-auto py-6 space-y-6">
             <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold tracking-tight">Órdenes de Venta</h1>
+                <h1 className="text-3xl font-bold tracking-tight">Ventas y Cotizaciones</h1>
                 <Link href="/dashboard/orders/new">
                     <Button>
                         <Plus className="mr-2 h-4 w-4" /> Nueva Orden
@@ -50,52 +124,18 @@ export default async function OrdersPage() {
                 </Link>
             </div>
 
-            <div className="border rounded-md">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Folio</TableHead>
-                            <TableHead>Cliente</TableHead>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Estado</TableHead>
-                            <TableHead className="text-right">Total</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {ordersData.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={5} className="text-center h-48 p-0">
-                                    <EmptyState
-                                        icon={ShoppingCart}
-                                        title="No hay órdenes de venta"
-                                        description="Crea tu primera orden para comenzar a vender."
-                                    />
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            ordersData.map((order) => (
-                                <TableRow key={order.id}>
-                                    <TableCell className="font-mono">
-                                        <Link href={`/dashboard/orders/${order.id}`} className="hover:underline text-blue-600">
-                                            {order.id.slice(0, 8)}
-                                        </Link>
-                                    </TableCell>
-                                    <TableCell>{order.entity.commercialName}</TableCell>
-                                    <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={order.status === 'CONFIRMED' ? 'default' : 'secondary'}>
-                                            {order.status === 'CONFIRMED' ? 'Confirmado' : 'Borrador'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right font-medium">
-                                        ${Number(order.totalAmount).toFixed(2)}
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
+            <Tabs defaultValue="CONFIRMED" className="w-full">
+                <TabsList className="grid w-full max-w-[400px] grid-cols-2 mb-4">
+                    <TabsTrigger value="CONFIRMED">Ventas Confirmadas</TabsTrigger>
+                    <TabsTrigger value="DRAFT">Cotizaciones</TabsTrigger>
+                </TabsList>
+                <TabsContent value="CONFIRMED" className="mt-0">
+                    {renderTable(confirmedOrders, 'CONFIRMED')}
+                </TabsContent>
+                <TabsContent value="DRAFT" className="mt-0">
+                    {renderTable(draftOrders, 'DRAFT')}
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

@@ -50,6 +50,13 @@
       "when": 1772231247420,
       "tag": "0006_futuristic_miss_america",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1772498048751,
+      "tag": "0007_sharp_mister_fear",
+      "breakpoints": true
     }
   ]
 }
