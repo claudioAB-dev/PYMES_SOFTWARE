@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { toast } from "sonner"
-import { markPayrollAsPaid } from "@/app/dashboard/hr/actions"
+import { payPayroll } from "@/app/dashboard/hr/actions"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -68,7 +68,7 @@ export function PayPayrollDialog({ payrollId, employeeName, netAmount, accounts,
 
     function onSubmit(values: z.infer<typeof paymentSchema>) {
         startTransition(async () => {
-            const result = await markPayrollAsPaid(payrollId, values.method, values.accountId, values.reference)
+            const result = await payPayroll(payrollId, [{ accountId: values.accountId, amount: Number(netAmount), reference: values.reference }]);
             if (result?.error) {
                 toast.error(result.error)
             } else {

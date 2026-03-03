@@ -3,11 +3,12 @@
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { employeeSchema, EmployeeInput } from "@/lib/validators/hr";
+import { createEmployeeSchema, CreateEmployeeInput } from "@/lib/validators/hr";
 import { createEmployee } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { PlusCircle } from "lucide-react";
 import {
     Sheet,
     SheetContent,
@@ -32,14 +33,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { useRouter } from "next/navigation";
 
 export function CreateEmployeeSheet() {
     const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
+    const router = useRouter();
 
-    const form = useForm<any>({
-        // @ts-ignore - zodResolver and react-hook-form types conflict on coerced fields
-        resolver: zodResolver(employeeSchema),
+    const form = useForm<CreateEmployeeInput>({
+        resolver: zodResolver(createEmployeeSchema),
         defaultValues: {
             firstName: "",
             lastName: "",
@@ -47,12 +49,10 @@ export function CreateEmployeeSheet() {
             socialSecurityNumber: "",
             baseSalary: 0,
             paymentPeriod: "BIWEEKLY",
-            isActive: true,
-            joinedAt: new Date(),
         },
     });
 
-    function onSubmit(data: EmployeeInput) {
+    function onSubmit(data: CreateEmployeeInput) {
         startTransition(async () => {
             const result = await createEmployee(data);
 
@@ -62,6 +62,7 @@ export function CreateEmployeeSheet() {
                 setOpen(false);
                 form.reset();
                 toast.success("Empleado registrado exitosamente");
+                router.refresh();
             }
         });
     }
@@ -69,13 +70,16 @@ export function CreateEmployeeSheet() {
     return (
         <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-                <Button>Nuevo Empleado</Button>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Nuevo Empleado
+                </Button>
             </SheetTrigger>
-            <SheetContent className="overflow-y-auto">
+            <SheetContent className="overflow-y-auto sm:max-w-md">
                 <SheetHeader>
                     <SheetTitle>Registrar Empleado</SheetTitle>
                     <SheetDescription>
-                        Añade un empleado a la nómina de la empresa.
+                        Ingrese los datos del nuevo empleado en la organización.
                     </SheetDescription>
                 </SheetHeader>
                 <div className="py-4">
@@ -115,7 +119,7 @@ export function CreateEmployeeSheet() {
                                 name="taxId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>RFC</FormLabel>
+                                        <FormLabel>RFC (Opcional)</FormLabel>
                                         <FormControl>
                                             <Input placeholder="Opcional" {...field} value={field.value || ""} />
                                         </FormControl>
@@ -129,7 +133,7 @@ export function CreateEmployeeSheet() {
                                 name="socialSecurityNumber"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>NSS (Seguro Social)</FormLabel>
+                                        <FormLabel>NSS (Opcional)</FormLabel>
                                         <FormControl>
                                             <Input placeholder="Opcional" {...field} value={field.value || ""} />
                                         </FormControl>
@@ -148,6 +152,7 @@ export function CreateEmployeeSheet() {
                                             <FormControl>
                                                 <Input
                                                     type="number"
+                                                    min="0"
                                                     step="0.01"
                                                     placeholder="0.00"
                                                     {...field}
@@ -181,25 +186,6 @@ export function CreateEmployeeSheet() {
                                     )}
                                 />
                             </div>
-
-                            <FormField
-                                control={form.control}
-                                name="joinedAt"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Fecha de Ingreso *</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="date"
-                                                {...field}
-                                                value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                                                onChange={(e) => field.onChange(new Date(e.target.value))}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
 
                             <SheetFooter className="mt-6">
                                 <Button type="submit" disabled={isPending}>

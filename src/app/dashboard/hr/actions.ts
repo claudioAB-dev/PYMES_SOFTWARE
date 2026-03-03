@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/db";
 import { employees, payrolls, memberships, financialAccounts, treasuryTransactions } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
-import { employeeSchema, EmployeeInput, payrollSlipSchema, PayrollSlipInput } from "@/lib/validators/hr";
+import { employeeSchema, EmployeeInput, payrollSlipSchema, PayrollSlipInput, createEmployeeSchema, CreateEmployeeInput, createPayrollSchema, CreatePayrollInput } from "@/lib/validators/hr";
 import { revalidatePath } from "next/cache";
 
 async function getOrganizationId() {
@@ -58,7 +58,7 @@ export async function getEmployees() {
     }
 }
 
-export async function createEmployee(input: EmployeeInput) {
+export async function createEmployee(input: CreateEmployeeInput) {
     try {
         const { organizationId, role } = await getOrganizationId();
 
@@ -66,22 +66,23 @@ export async function createEmployee(input: EmployeeInput) {
             return { error: "No tienes permisos para crear empleados" };
         }
 
-        const validatedFields = employeeSchema.safeParse(input);
+        const validatedFields = createEmployeeSchema.safeParse(input);
 
         if (!validatedFields.success) {
-            return { error: "Datos inválidos" };
+            return { error: "Datos inválidos: " + validatedFields.error.message };
         }
+
+        const { firstName, lastName, taxId, socialSecurityNumber, baseSalary, paymentPeriod } = validatedFields.data;
 
         await db.insert(employees).values({
             organizationId,
-            firstName: validatedFields.data.firstName,
-            lastName: validatedFields.data.lastName,
-            taxId: validatedFields.data.taxId || null,
-            socialSecurityNumber: validatedFields.data.socialSecurityNumber || null,
-            baseSalary: validatedFields.data.baseSalary.toString(),
-            paymentPeriod: validatedFields.data.paymentPeriod,
-            isActive: validatedFields.data.isActive,
-            joinedAt: validatedFields.data.joinedAt,
+            firstName,
+            lastName,
+            taxId: taxId || null,
+            socialSecurityNumber: socialSecurityNumber || null,
+            baseSalary: baseSalary.toString(),
+            paymentPeriod,
+            isActive: true,
         });
 
         revalidatePath("/dashboard/hr");
@@ -90,6 +91,32 @@ export async function createEmployee(input: EmployeeInput) {
     } catch (error: any) {
         console.error("Error creating employee:", error);
         return { error: "Error al crear el empleado" };
+    }
+}
+
+export async function toggleEmployeeStatus(employeeId: string, currentStatus: boolean) {
+    try {
+        const { organizationId, role } = await getOrganizationId();
+
+        if (!HR_ROLES.includes(role)) {
+            return { error: "No tienes permisos para modificar el estado de empleados" };
+        }
+
+        await db.update(employees)
+            .set({ isActive: !currentStatus })
+            .where(
+                and(
+                    eq(employees.id, employeeId),
+                    eq(employees.organizationId, organizationId)
+                )
+            );
+
+        revalidatePath("/dashboard/hr");
+        revalidatePath("/dashboard/payroll");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error toggling employee status:", error);
+        return { error: "Error al cambiar el estado del empleado." };
     }
 }
 
@@ -160,7 +187,7 @@ export async function getPayrolls() {
     }
 }
 
-export async function generatePayrollSlip(input: PayrollSlipInput) {
+export async function createPayroll(input: CreatePayrollInput) {
     try {
         const { organizationId, role } = await getOrganizationId();
 
@@ -168,10 +195,10 @@ export async function generatePayrollSlip(input: PayrollSlipInput) {
             return { error: "No tienes permisos para generar nóminas" };
         }
 
-        const validatedFields = payrollSlipSchema.safeParse(input);
+        const validatedFields = createPayrollSchema.safeParse(input);
 
         if (!validatedFields.success) {
-            return { error: "Datos de nómina inválidos" };
+            return { error: "Datos de nómina inválidos: " + validatedFields.error.message };
         }
 
         const { employeeId, periodStart, periodEnd, grossAmount, deductions } = validatedFields.data;
@@ -197,12 +224,12 @@ export async function generatePayrollSlip(input: PayrollSlipInput) {
         revalidatePath("/dashboard/payroll");
         return { success: true };
     } catch (error: any) {
-        console.error("Error generating payroll slip:", error);
+        console.error("Error creating payroll:", error);
         return { error: "Error al generar el recibo de nómina" };
     }
 }
 
-export async function markPayrollAsPaid(payrollId: string, paymentMethod: "CASH" | "TRANSFER" | "CARD" | "OTHER", accountId: string, reference?: string) {
+export async function payPayroll(payrollId: string, payments: { accountId: string; amount: number; reference?: string }[]) {
     try {
         const { organizationId, role, user } = await getOrganizationId();
 
@@ -226,15 +253,44 @@ export async function markPayrollAsPaid(payrollId: string, paymentMethod: "CASH"
                 throw new Error("Esta nómina ya fue marcada como pagada");
             }
 
-            // Verify Account
-            const account = await tx.query.financialAccounts.findFirst({
-                where: and(
-                    eq(financialAccounts.id, accountId),
-                    eq(financialAccounts.organizationId, organizationId)
-                )
-            });
+            const totalPaymentAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const netAmount = Number(payroll.netAmount);
 
-            if (!account) throw new Error("Cuenta financiera no encontrada");
+            // Verificamos que los montos cuadren
+            if (Math.abs(totalPaymentAmount - netAmount) > 0.01) {
+                throw new Error("Los montos no cuadran con el neto a pagar");
+            }
+
+            for (const payment of payments) {
+                // Verify Account
+                const account = await tx.query.financialAccounts.findFirst({
+                    where: and(
+                        eq(financialAccounts.id, payment.accountId),
+                        eq(financialAccounts.organizationId, organizationId)
+                    )
+                });
+
+                if (!account) throw new Error("Cuenta financiera no encontrada o inválida");
+
+                const amountToDeduct = Number(payment.amount);
+
+                // Insert Treasury Transaction
+                await tx.insert(treasuryTransactions).values({
+                    organizationId,
+                    accountId: payment.accountId,
+                    type: 'EXPENSE',
+                    category: 'PAYROLL',
+                    amount: amountToDeduct.toString(),
+                    referenceId: payrollId,
+                    description: payment.reference ? `Pago nómina: ${payment.reference}` : `Pago nómina #${payrollId.substring(0, 8)}`,
+                    createdBy: user.id
+                });
+
+                // Update Account Balance
+                await tx.update(financialAccounts)
+                    .set({ balance: sql`${financialAccounts.balance} - ${amountToDeduct}` })
+                    .where(and(eq(financialAccounts.id, payment.accountId), eq(financialAccounts.organizationId, organizationId)));
+            }
 
             // Update Payroll
             await tx
@@ -245,25 +301,6 @@ export async function markPayrollAsPaid(payrollId: string, paymentMethod: "CASH"
                     updatedAt: new Date()
                 })
                 .where(and(eq(payrolls.id, payrollId), eq(payrolls.organizationId, organizationId)));
-
-            // Insert Treasury Transaction
-            const amount = Number(payroll.netAmount);
-
-            await tx.insert(treasuryTransactions).values({
-                organizationId,
-                accountId,
-                type: 'EXPENSE',
-                category: 'PAYROLL',
-                amount: payroll.netAmount.toString(),
-                referenceId: payrollId,
-                description: reference ? `Pago nómina: ${reference}` : `Pago nómina #${payrollId.substring(0, 8)}`,
-                createdBy: user.id
-            });
-
-            // Update Account Balance
-            await tx.update(financialAccounts)
-                .set({ balance: sql`${financialAccounts.balance} - ${amount}` })
-                .where(and(eq(financialAccounts.id, accountId), eq(financialAccounts.organizationId, organizationId)));
 
             success = true;
         });

@@ -1,6 +1,6 @@
 import { getPayrolls } from "../hr/actions";
 import { getFinancialAccounts } from "../treasury/actions";
-import { PayrollTable } from "./payroll-table";
+import { PayrollTable, columns } from "./payroll-table";
 import { CreatePayrollSheet } from "./create-payroll-sheet";
 
 export const dynamic = 'force-dynamic';
@@ -20,11 +20,12 @@ export default async function PayrollPage() {
                         Genera y paga los recibos de nómina de tus empleados.
                     </p>
                 </div>
+                {/* @ts-ignore */}
                 <CreatePayrollSheet />
             </div>
 
             {/* @ts-ignore */}
-            <PayrollTable accounts={accounts} data={payrolls} />
+            <PayrollTable columns={columns} data={payrolls} financialAccounts={accounts} />
         </div>
     );
 }

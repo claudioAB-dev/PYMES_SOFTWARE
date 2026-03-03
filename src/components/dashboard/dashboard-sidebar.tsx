@@ -59,6 +59,18 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
             color: "text-orange-700",
         },
         {
+            label: "Recursos Humanos",
+            icon: Users,
+            href: "/dashboard/hr",
+            color: "text-yellow-500",
+        },
+        {
+            label: "Nómina / Pagos",
+            icon: Landmark,
+            href: "/dashboard/payroll",
+            color: "text-emerald-400",
+        },
+        {
             label: "Configuración",
             icon: Settings,
             href: "/dashboard/settings",

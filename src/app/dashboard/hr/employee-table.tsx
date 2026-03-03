@@ -20,6 +20,20 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { MoreHorizontal } from "lucide-react";
+import { toast } from "sonner";
+import { toggleEmployeeStatus } from "./actions";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 export type Employee = {
     id: string;
     organizationId: string;
@@ -102,6 +116,49 @@ export const columns: ColumnDef<Employee>[] = [
             );
         },
     },
+    {
+        id: "actions",
+        enableHiding: false,
+        cell: ({ row }) => {
+            const employee = row.original;
+            const router = useRouter();
+            const [isPending, startTransition] = useTransition();
+
+            const handleToggleStatus = () => {
+                startTransition(async () => {
+                    const result = await toggleEmployeeStatus(employee.id, employee.isActive);
+                    if (result.error) {
+                        toast.error(result.error);
+                    } else {
+                        toast.success(`Empleado \${employee.isActive ? 'desactivado' : 'activado'} correctamente`);
+                        router.refresh();
+                    }
+                });
+            };
+
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Abrir menú</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            onClick={handleToggleStatus}
+                            disabled={isPending}
+                            className={employee.isActive ? "text-red-600" : "text-green-600"}
+                        >
+                            {isPending ? "Procesando..." : (employee.isActive ? "Dar de baja (Inactivar)" : "Reactivar empleado")}
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )
+        },
+    }
 ];
 
 interface DataTableProps<TData, TValue> {

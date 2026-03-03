@@ -3,8 +3,8 @@
 import { useState, useTransition, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { payrollSlipSchema, PayrollSlipInput } from "@/lib/validators/hr";
-import { generatePayrollSlip, getEmployees } from "../hr/actions";
+import { createPayrollSchema, CreatePayrollInput } from "@/lib/validators/hr";
+import { createPayroll, getEmployees } from "../hr/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -44,8 +44,8 @@ export function CreatePayrollSheet() {
         }
     }, [open]);
 
-    const form = useForm<PayrollSlipInput>({
-        resolver: zodResolver(payrollSlipSchema),
+    const form = useForm<CreatePayrollInput>({
+        resolver: zodResolver(createPayrollSchema),
         defaultValues: {
             employeeId: "",
             periodStart: new Date(),
@@ -61,22 +61,22 @@ export function CreatePayrollSheet() {
     useEffect(() => {
         if (selectedEmployeeId && employees.length > 0) {
             const emp = employees.find(e => e.id === selectedEmployeeId);
-            if (emp) {
+            if (emp && emp.isActive) {
                 form.setValue("grossAmount", Number(emp.baseSalary));
             }
         }
     }, [selectedEmployeeId, employees, form]);
 
-    function onSubmit(data: PayrollSlipInput) {
+    function onSubmit(data: CreatePayrollInput) {
         startTransition(async () => {
-            const result = await generatePayrollSlip(data);
+            const result = await createPayroll(data);
 
             if (result.error) {
                 toast.error(result.error);
             } else {
                 setOpen(false);
                 form.reset();
-                toast.success("Recibo de nómina generado exitosamente");
+                toast.success("Nómina guardada en borrador");
             }
         });
     }
@@ -88,13 +88,13 @@ export function CreatePayrollSheet() {
     return (
         <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-                <Button>Generar Recibo</Button>
+                <Button>Generar Nómina</Button>
             </SheetTrigger>
             <SheetContent className="overflow-y-auto">
                 <SheetHeader>
                     <SheetTitle>Generar Recibo de Nómina</SheetTitle>
                     <SheetDescription>
-                        Calcula y registra un nuevo pago de nómina para un empleado.
+                        Calcula y registra una nueva nómina para un empleado.
                     </SheetDescription>
                 </SheetHeader>
                 <div className="py-4">
@@ -113,7 +113,7 @@ export function CreatePayrollSheet() {
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {employees.map(emp => (
+                                                {employees.filter(e => e.isActive).map(emp => (
                                                     <SelectItem key={emp.id} value={emp.id}>
                                                         {emp.firstName} {emp.lastName} ({emp.taxId || "Sin RFC"})
                                                     </SelectItem>
@@ -205,7 +205,7 @@ export function CreatePayrollSheet() {
                             />
 
                             <div className="mt-4 p-4 rounded-md bg-muted border">
-                                <div className="text-sm font-medium text-muted-foreground mb-1">Cálculo de Neto (Automático)</div>
+                                <div className="text-sm font-medium text-muted-foreground mb-1">Total Neto Calculado</div>
                                 <div className="text-2xl font-bold text-green-600">
                                     ${netAmount.toFixed(2)} MXN
                                 </div>
@@ -213,7 +213,7 @@ export function CreatePayrollSheet() {
 
                             <SheetFooter className="mt-6">
                                 <Button type="submit" disabled={isPending || !selectedEmployeeId}>
-                                    {isPending ? "Generando..." : "Generar en Borrador"}
+                                    {isPending ? "Generando..." : "Guardar en Borrador"}
                                 </Button>
                             </SheetFooter>
                         </form>
