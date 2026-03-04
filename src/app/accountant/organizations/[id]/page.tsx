@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import { es } from "date-fns/locale";
 import { PrintButton } from "./print-button";
-import { TrendingUp, TrendingDown, Calculator, Building } from "lucide-react";
+import { TrendingUp, TrendingDown, Calculator, Building, FileDown } from "lucide-react";
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -53,6 +53,7 @@ export default async function AccountantClientDetailsPage({ params }: PageProps)
     const currentMonthEnd = endOfMonth(now);
     const monthName = format(now, "MMMM yyyy", { locale: es });
     const capitalizedMonthName = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+    const currentMonthStr = format(now, "yyyy-MM");
 
     // Fetch Orders for the current month
     const monthOrders = await db.select({
@@ -115,7 +116,14 @@ export default async function AccountantClientDetailsPage({ params }: PageProps)
                         Mes evaluado: <strong className="text-slate-700" suppressHydrationWarning>{capitalizedMonthName}</strong>
                     </p>
                 </div>
-                <div className="print:hidden">
+                <div className="flex items-center gap-3 print:hidden">
+                    <a
+                        href={`/api/accountant/organizations/${organizationId}/export?month=${currentMonthStr}`}
+                        className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 gap-2"
+                    >
+                        <FileDown className="w-4 h-4" />
+                        Exportar Pólizas (CSV)
+                    </a>
                     <PrintButton />
                 </div>
             </div>

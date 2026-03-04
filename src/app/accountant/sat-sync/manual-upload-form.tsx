@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { FileCode, CheckCircle2, Loader2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { FileCode, Loader2, UploadCloud, X, File as FileIcon } from "lucide-react";
 import { toast } from "sonner";
-import { uploadManualXML } from "./actions";
+import { processSatXmls, ConciliationResult } from "./actions";
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 interface ManualUploadFormProps {
@@ -15,21 +13,67 @@ interface ManualUploadFormProps {
 }
 
 export function ManualUploadForm({ organizationId }: ManualUploadFormProps) {
-    const [isUploading, setIsUploading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    async function handleManualUpload(formData: FormData) {
-        setIsUploading(true);
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const files = Array.from(e.dataTransfer.files).filter(file => file.name.endsWith('.xml'));
+        if (files.length > 0) {
+            setSelectedFiles(prev => [...prev, ...files]);
+        } else {
+            toast.error("Solo se permiten archivos XML.");
+        }
+    };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files);
+            setSelectedFiles(prev => [...prev, ...files]);
+        }
+    };
+
+    const removeFile = (index: number) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    async function handleProcessFiles() {
+        if (selectedFiles.length === 0) return;
+
+        setIsSubmitting(true);
         try {
-            const result = await uploadManualXML(formData, organizationId);
-            if (result.success) {
-                toast.success(result.message);
+            const formData = new FormData();
+            formData.append("organizationId", organizationId);
+            selectedFiles.forEach(file => formData.append("files", file));
+
+            const result = await processSatXmls(formData);
+
+            if (result.success && result.data) {
+                toast.success("XMLs procesados y conciliados exitosamente.");
+                window.dispatchEvent(new CustomEvent<ConciliationResult[]>('onXmlsProcessed', {
+                    detail: result.data as ConciliationResult[]
+                }));
+                setSelectedFiles([]);
             } else {
-                toast.error(result.error);
+                toast.error(result.error || "Ocurrió un error al procesar.");
             }
         } catch (error) {
-            toast.error("Ocurrió un error inesperado al subir el archivo.");
+            toast.error("Ocurrió un error inesperado al subir los archivos.");
         } finally {
-            setIsUploading(false);
+            setIsSubmitting(false);
         }
     }
 
@@ -38,48 +82,82 @@ export function ManualUploadForm({ organizationId }: ManualUploadFormProps) {
             <CardHeader>
                 <div className="flex items-center gap-2 mb-2">
                     <FileCode className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-xl">Prueba Manual</CardTitle>
+                    <CardTitle className="text-xl">Conciliación Manual</CardTitle>
                 </div>
                 <CardDescription>
-                    Sube un archivo XML manualmente (CFDI 4.0) para probar el procesamiento y decodificación.
+                    Sube múltiples archivos XML (CFDI) para compararlos contra las operaciones registradas en Axioma.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="flex-1">
-                <form id="manual-upload-form" action={handleManualUpload} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="xml-file">Archivo CFDI (.xml)</Label>
-                        <Input
-                            id="xml-file"
-                            name="file"
-                            type="file"
-                            accept=".xml"
-                            required
-                            className="cursor-pointer file:cursor-pointer file:text-primary file:font-semibold"
-                        />
-                    </div>
-                </form>
-            </CardContent>
-            <CardFooter>
-                <Button
-                    type="submit"
-                    form="manual-upload-form"
-                    variant="secondary"
-                    className="w-full"
-                    disabled={isUploading}
+            <CardContent className="flex-1 space-y-4">
+                <div
+                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
+                        } ${isSubmitting ? 'opacity-50 pointer-events-none' : ''}`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
                 >
-                    {isUploading ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Procesando XML...
-                        </>
-                    ) : (
-                        <>
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                            Subir XML
-                        </>
-                    )}
-                </Button>
-            </CardFooter>
+                    <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-sm font-semibold mb-1">Arrastra tus XMLs aquí o haz clic para explorar</h3>
+                    <p className="text-xs text-muted-foreground">Puedes seleccionar múltiples archivos a la vez.</p>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileSelect}
+                        accept=".xml"
+                        multiple
+                        className="hidden"
+                    />
+                </div>
+
+                {selectedFiles.length > 0 && (
+                    <div className="space-y-2 mt-4 max-h-40 overflow-y-auto pr-2">
+                        {selectedFiles.map((file, index) => (
+                            <div key={`${file.name}-${index}`} className="flex items-center justify-between p-2 rounded-md bg-muted/50 text-sm">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    <FileIcon className="h-4 w-4 text-primary shrink-0" />
+                                    <span className="truncate">{file.name}</span>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeFile(index);
+                                    }}
+                                    disabled={isSubmitting}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+            {selectedFiles.length > 0 && (
+                <CardFooter>
+                    <Button
+                        type="button"
+                        onClick={handleProcessFiles}
+                        className="w-full text-white bg-primary hover:bg-primary/90"
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Procesando...
+                            </>
+                        ) : (
+                            <>
+                                <UploadCloud className="mr-2 h-4 w-4" />
+                                Procesar y Conciliar {selectedFiles.length} {selectedFiles.length === 1 ? 'archivo' : 'archivos'}
+                            </>
+                        )}
+                    </Button>
+                </CardFooter>
+            )}
         </Card>
     );
 }

@@ -74,17 +74,17 @@ export function InvoicesTable({ data }: InvoicesTableProps) {
     const getTypeBadgeOptions = (type: FiscalDocumentType) => {
         switch (type) {
             case "I":
-                return { label: "Ingreso", className: "bg-green-100 text-green-800 hover:bg-green-200" };
+                return { label: "Ingreso", className: "bg-green-100/80 text-green-700 hover:bg-green-200 border-green-200" };
             case "E":
-                return { label: "Egreso", className: "bg-red-100 text-red-800 hover:bg-red-200" };
+                return { label: "Egreso", className: "bg-red-100/80 text-red-700 hover:bg-red-200 border-red-200" };
             case "N":
-                return { label: "Nómina", className: "bg-blue-100 text-blue-800 hover:bg-blue-200" };
+                return { label: "Nómina", className: "bg-blue-100/80 text-blue-700 hover:bg-blue-200 border-blue-200" };
             case "P":
-                return { label: "Pago", className: "bg-purple-100 text-purple-800 hover:bg-purple-200" };
+                return { label: "Pago", className: "bg-purple-100/80 text-purple-700 hover:bg-purple-200 border-purple-200" };
             case "T":
-                return { label: "Traslado", className: "bg-gray-100 text-gray-800 hover:bg-gray-200" };
+                return { label: "Traslado", className: "bg-gray-100/80 text-gray-700 hover:bg-gray-200 border-gray-200" };
             default:
-                return { label: type, className: "bg-gray-100 text-gray-800 hover:bg-gray-200" };
+                return { label: type, className: "bg-gray-100/80 text-gray-700 hover:bg-gray-200 border-gray-200" };
         }
     };
 

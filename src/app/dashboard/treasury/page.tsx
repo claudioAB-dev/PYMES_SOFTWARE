@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingUp, TrendingDown, Wallet } from "lucide-react";
 import { NewTransactionSheet } from "./new-transaction-sheet";
 import { CreateAccountSheet } from "./create-account-sheet";
+import { DirectExpenseSheet } from "@/components/treasury/direct-expense-sheet";
 import { FinancialAccountsGrid } from "./financial-accounts-grid";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -44,8 +45,9 @@ export default async function TreasuryPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Tesorería y Flujo de Caja</h1>
                     <p className="text-muted-foreground">Resume el estado financiero, cuentas y movimientos recientes.</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center flex-wrap gap-2">
                     <CreateAccountSheet />
+                    <DirectExpenseSheet accounts={accounts.filter(a => a.isActive)} />
                     <NewTransactionSheet accounts={accounts.filter(a => a.isActive)} />
                 </div>
             </div>

@@ -394,3 +394,63 @@ export async function registerOrderPayment(orderId: string, amount: number, meth
     }
 }
 
+export async function registerDirectExpense(input: {
+    accountId: string;
+    amount: number;
+    category: 'OPERATING_EXPENSE' | 'TAX';
+    description: string;
+    date?: Date;
+}) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "No autorizado" };
+
+    const userMemberships = await db.query.memberships.findMany({
+        where: eq(memberships.userId, user.id),
+    });
+
+    if (userMemberships.length === 0) return { error: "No organization found" };
+    const { organizationId, role } = userMemberships[0];
+
+    try {
+        await db.transaction(async (tx) => {
+            const account = await tx.query.financialAccounts.findFirst({
+                where: and(
+                    eq(financialAccounts.id, input.accountId),
+                    eq(financialAccounts.organizationId, organizationId)
+                )
+            });
+
+            if (!account) throw new Error("Cuenta financiera no encontrada");
+
+            if (input.amount <= 0) {
+                throw new Error("El monto debe ser mayor a 0");
+            }
+
+            const expenseDate = input.date || new Date();
+
+            await tx.insert(treasuryTransactions).values({
+                organizationId,
+                accountId: input.accountId,
+                type: 'EXPENSE',
+                category: input.category,
+                amount: input.amount.toString(),
+                description: input.description,
+                date: expenseDate,
+                createdBy: user.id,
+            });
+
+            await tx.update(financialAccounts)
+                .set({ balance: sql`${financialAccounts.balance} - ${input.amount}` })
+                .where(and(eq(financialAccounts.id, input.accountId), eq(financialAccounts.organizationId, organizationId)));
+        });
+
+        revalidatePath("/dashboard/treasury");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error registering direct expense:", error);
+        return { error: error.message || "Error al registrar gasto" };
+    }
+}
+

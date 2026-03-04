@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, FileText } from "lucide-react";
+import { LayoutDashboard, Users, FileText, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function AccountantSidebar({ activeOrgId }: { activeOrgId?: string }) {
@@ -21,6 +21,18 @@ export function AccountantSidebar({ activeOrgId }: { activeOrgId?: string }) {
             icon: Users,
             href: "/accountant/organizations",
             color: "text-indigo-500",
+        },
+        {
+            label: "Visor de CFDIs",
+            icon: FileText,
+            href: "/accountant/invoices",
+            color: "text-purple-500",
+        },
+        {
+            label: "Conciliación SAT",
+            icon: Server,
+            href: "/accountant/sat-sync",
+            color: "text-orange-500",
         },
     ];
 

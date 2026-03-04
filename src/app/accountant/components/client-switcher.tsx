@@ -59,7 +59,7 @@ export function ClientSwitcher({ organizations, activeOrgId }: ClientSwitcherPro
             </SelectTrigger>
             <SelectContent>
                 <SelectGroup>
-                    <SelectLabel>Tus Clientes</SelectLabel>
+                    <SelectLabel>¿Qué PyME estás auditando?</SelectLabel>
                     {organizations.map((org) => (
                         <SelectItem key={org.id} value={org.id} className="text-sm">
                             {org.name}

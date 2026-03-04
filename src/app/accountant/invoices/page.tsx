@@ -26,8 +26,8 @@ export default async function InvoicesPage() {
             <div className="flex-1 space-y-6 xl:p-8 p-6 flex flex-col justify-center min-h-[50vh]">
                 <EmptyState
                     icon={Building2}
-                    title="Ningún cliente seleccionado"
-                    description="Selecciona una empresa en el menú superior o invita a tu primer cliente para ver sus facturas."
+                    title="Ninguna PyME seleccionada"
+                    description="Selecciona una empresa en la barra superior para auditar su Bóveda Fiscal y descargar sus comprobantes."
                 />
             </div>
         );
@@ -37,7 +37,8 @@ export default async function InvoicesPage() {
 
     // Fetching data from the DB filtering strictly by organization_id
     const data = await db.query.fiscalDocuments.findMany({
-        where: eq(fiscalDocuments.organizationId, organizationId)
+        where: eq(fiscalDocuments.organizationId, organizationId),
+        orderBy: (fiscalDocuments, { desc }) => [desc(fiscalDocuments.issueDate)]
     });
 
     const documents: FiscalDocument[] = data.map(doc => ({
@@ -45,7 +46,7 @@ export default async function InvoicesPage() {
         uuid: doc.uuid,
         issuerRfc: doc.issuerRfc || "",
         receiverRfc: doc.receiverRfc || "",
-        issueDate: doc.issueDate || new Date(),
+        issueDate: doc.issueDate ? new Date(doc.issueDate) : new Date(),
         type: (doc.type || "I") as FiscalDocument["type"],
         subtotal: parseFloat(doc.subtotal?.toString() || "0"),
         tax: parseFloat(doc.tax?.toString() || "0"),
