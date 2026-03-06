@@ -9,6 +9,8 @@ import { GeneralTab } from "./general-tab"
 import { MembersTab } from "./members-tab"
 import { TaxesTab } from "./taxes-tab"
 import { PreferencesTab } from "./preferences-tab"
+import { RolesTab } from "./roles-tab"
+import { getCustomRoles } from "./team/actions"
 
 async function getOrganization() {
     const supabase = await createClient()
@@ -40,6 +42,10 @@ export default async function SettingsPage() {
 
     const { organization, role } = data
 
+    // Fetch custom roles for the Roles Tab
+    const customRolesResponse = await getCustomRoles(organization.id)
+    const customRoles = customRolesResponse.roles || []
+
     return (
         <div className="container mx-auto py-6 space-y-6" suppressHydrationWarning>
             <div className="flex items-center justify-between space-y-2">
@@ -50,6 +56,9 @@ export default async function SettingsPage() {
                 <TabsList>
                     <TabsTrigger value="general">General</TabsTrigger>
                     <TabsTrigger value="members">Equipo</TabsTrigger>
+                    {role === 'OWNER' || role === 'ADMIN' ? (
+                        <TabsTrigger value="roles">Roles</TabsTrigger>
+                    ) : null}
                     <TabsTrigger value="taxes">Impuestos</TabsTrigger>
                     <TabsTrigger value="preferences">Preferencias</TabsTrigger>
                 </TabsList>
@@ -59,6 +68,11 @@ export default async function SettingsPage() {
                 <TabsContent value="members" className="space-y-4">
                     <MembersTab organizationId={organization.id} currentUserRole={role} />
                 </TabsContent>
+                {role === 'OWNER' || role === 'ADMIN' ? (
+                    <TabsContent value="roles" className="space-y-4">
+                        <RolesTab organizationId={organization.id} roles={customRoles} />
+                    </TabsContent>
+                ) : null}
                 <TabsContent value="taxes" className="space-y-4">
                     <TaxesTab organizationId={organization.id} />
                 </TabsContent>

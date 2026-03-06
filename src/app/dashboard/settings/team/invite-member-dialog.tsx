@@ -23,6 +23,9 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
+    SelectSeparator,
+    SelectGroup,
+    SelectLabel
 } from "@/components/ui/select"
 
 import { inviteUserSchema, type InviteUserInput } from "@/lib/validators/team"
@@ -31,10 +34,12 @@ import { inviteMember } from "./actions"
 export function InviteMemberDialog({
     organizationId,
     currentUserRole,
+    customRoles = [],
     onSuccess,
 }: {
     organizationId: string
     currentUserRole: string
+    customRoles?: { id: string; name: string }[]
     onSuccess: () => void
 }) {
     const [open, setOpen] = useState(false)
@@ -46,6 +51,7 @@ export function InviteMemberDialog({
         defaultValues: {
             email: "",
             role: "MEMBER",
+            customRoleId: undefined,
         },
     })
 
@@ -115,17 +121,32 @@ export function InviteMemberDialog({
                             <Label htmlFor="role">Rol</Label>
                             <Select
                                 value={form.watch("role")}
-                                onValueChange={(value) => form.setValue("role", value as any)}
+                                onValueChange={(value) => form.setValue("role", value)}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Selecciona un rol" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="MEMBER">Miembro</SelectItem>
-                                    {currentUserRole === 'OWNER' && (
-                                        <SelectItem value="ADMIN">Administrador</SelectItem>
+                                    <SelectGroup>
+                                        <SelectLabel>Roles del Sistema</SelectLabel>
+                                        <SelectItem value="MEMBER">Miembro</SelectItem>
+                                        {currentUserRole === 'OWNER' && (
+                                            <SelectItem value="ADMIN">Administrador</SelectItem>
+                                        )}
+                                        <SelectItem value="ACCOUNTANT">Contador</SelectItem>
+                                    </SelectGroup>
+
+                                    {customRoles.length > 0 && (
+                                        <>
+                                            <SelectSeparator />
+                                            <SelectGroup>
+                                                <SelectLabel>Roles Personalizados</SelectLabel>
+                                                {customRoles.map(cr => (
+                                                    <SelectItem key={cr.id} value={cr.id}>{cr.name}</SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        </>
                                     )}
-                                    <SelectItem value="ACCOUNTANT">Contador</SelectItem>
                                 </SelectContent>
                             </Select>
                             {form.formState.errors.role && (

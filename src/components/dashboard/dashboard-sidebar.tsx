@@ -16,9 +16,10 @@ import { Button } from "@/components/ui/button";
 
 interface DashboardSidebarProps {
     className?: string;
+    userPermissions: string[];
 }
 
-export function DashboardSidebar({ className }: DashboardSidebarProps) {
+export function DashboardSidebar({ className, userPermissions }: DashboardSidebarProps) {
     const pathname = usePathname();
 
     const routes = [
@@ -27,56 +28,69 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
             icon: LayoutDashboard,
             href: "/dashboard",
             color: "text-sky-500",
+            permissionId: "view:dashboard",
         },
         {
             label: "Directorio / PyMEs",
             icon: Users,
             href: "/dashboard/entities",
             color: "text-violet-500",
+            permissionId: "view:entities",
         },
         {
             label: "Ventas / Cotizaciones",
             icon: ShoppingCart,
             href: "/dashboard/orders",
             color: "text-pink-700",
+            permissionId: "view:orders",
         },
         {
             label: "Compras",
             icon: ShoppingBag,
             href: "/dashboard/purchases",
             color: "text-blue-600",
+            permissionId: "view:purchases",
         },
         {
             label: "Tesorería",
             icon: Landmark,
             href: "/dashboard/treasury",
             color: "text-emerald-500",
+            permissionId: "view:treasury",
         },
         {
             label: "Inventario",
             icon: Package,
             href: "/dashboard/products",
             color: "text-orange-700",
+            permissionId: "view:products",
         },
         {
             label: "Recursos Humanos",
             icon: Users,
             href: "/dashboard/hr",
             color: "text-yellow-500",
+            permissionId: "view:hr",
         },
         {
             label: "Nómina / Pagos",
             icon: Landmark,
             href: "/dashboard/payroll",
             color: "text-emerald-400",
+            permissionId: "view:payroll",
         },
         {
             label: "Configuración",
             icon: Settings,
             href: "/dashboard/settings",
             color: "text-gray-500",
+            permissionId: "view:settings",
         },
     ];
+
+    const filteredRoutes = routes.filter(
+        route => userPermissions.includes('*') || userPermissions.includes(route.permissionId)
+    );
 
     return (
         <div className={cn("pb-12 space-y-4 py-4 flex flex-col h-full bg-slate-900 text-white", className)}>
@@ -87,7 +101,7 @@ export function DashboardSidebar({ className }: DashboardSidebarProps) {
                     </h1>
                 </Link>
                 <div className="space-y-1">
-                    {routes.map((route) => {
+                    {filteredRoutes.map((route) => {
                         const isActive = route.href === "/dashboard"
                             ? pathname === "/dashboard"
                             : pathname.startsWith(route.href);

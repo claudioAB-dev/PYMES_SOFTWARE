@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getAdminAuthClient } from '@/lib/supabase/admin'
 import { db } from '@/db'
-import { invitations, memberships, users } from '@/db/schema'
+import { invitations, memberships, users, customRoles } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { randomBytes } from 'crypto'
@@ -12,8 +12,12 @@ import {
     removeMemberSchema,
     revokeInvitationSchema,
     acceptInvitationSchema,
+    insertCustomRoleSchema,
+    updateCustomRoleSchema,
     type InviteUserInput,
     type AcceptInvitationInput,
+    type InsertCustomRoleInput,
+    type UpdateCustomRoleInput,
 } from '@/lib/validators/team'
 
 // Helper: Get current user's membership
@@ -46,7 +50,8 @@ export async function getTeamData(organizationId: string) {
         const members = await db.query.memberships.findMany({
             where: eq(memberships.organizationId, organizationId),
             with: {
-                user: true
+                user: true,
+                customRole: true
             },
             orderBy: (memberships, { asc }) => [asc(memberships.createdAt)]
         })
@@ -58,16 +63,23 @@ export async function getTeamData(organizationId: string) {
                 eq(invitations.status, 'PENDING')
             ),
             with: {
-                inviter: true
+                inviter: true,
+                customRole: true
             },
             orderBy: (invitations, { desc }) => [desc(invitations.createdAt)]
+        })
+
+        const customRolesData = await db.query.customRoles.findMany({
+            where: eq(customRoles.organizationId, organizationId),
+            orderBy: (customRoles, { asc }) => [asc(customRoles.name)]
         })
 
         return {
             success: true,
             members,
             invitations: pendingInvitations,
-            currentUserRole: result.membership.role
+            currentUserRole: result.membership.role,
+            customRoles: customRolesData
         }
     } catch (error) {
         console.error('Error fetching team data:', error)
@@ -96,7 +108,16 @@ export async function inviteMember(input: InviteUserInput, organizationId: strin
         return { error: validation.error.errors[0].message }
     }
 
-    const { email, role } = validation.data
+    const { email, role: rawRole } = validation.data
+
+    let role: 'ADMIN' | 'MEMBER' | 'ACCOUNTANT' = 'MEMBER'
+    let customRoleId: string | null = null
+
+    if (rawRole === 'ADMIN' || rawRole === 'MEMBER' || rawRole === 'ACCOUNTANT') {
+        role = rawRole
+    } else {
+        customRoleId = rawRole
+    }
 
     // Prevent role escalation: ADMIN can't invite ADMIN unless they're OWNER
     if (role === 'ADMIN' && membership.role !== 'OWNER') {
@@ -146,6 +167,7 @@ export async function inviteMember(input: InviteUserInput, organizationId: strin
         const [invitation] = await db.insert(invitations).values({
             email: email.toLowerCase(),
             role,
+            customRoleId,
             token,
             organizationId,
             invitedBy: currentUser.id,
@@ -376,6 +398,7 @@ export async function acceptInvite(input: AcceptInvitationInput) {
                 userId: authData.user!.id,
                 organizationId: invitation.organizationId,
                 role: invitation.role,
+                customRoleId: invitation.customRoleId,
             })
 
             // Mark invitation as accepted
@@ -449,6 +472,7 @@ export async function acceptInviteExistingUser(input: {
                 userId: authData.user!.id,
                 organizationId: invitation.organizationId,
                 role: invitation.role,
+                customRoleId: invitation.customRoleId,
             })
             await tx.update(invitations)
                 .set({ status: 'ACCEPTED' })
@@ -460,5 +484,151 @@ export async function acceptInviteExistingUser(input: {
     } catch (error) {
         console.error('Error accepting invite (existing user):', error)
         return { error: 'Error al procesar la invitación' }
+    }
+}
+
+// Get custom roles for an organization
+export async function getCustomRoles(organizationId: string) {
+    const result = await getCurrentUserMembership(organizationId)
+
+    if (!result || !result.membership) {
+        return { error: 'No autorizado' }
+    }
+
+    try {
+        const roles = await db.query.customRoles.findMany({
+            where: eq(customRoles.organizationId, organizationId),
+            orderBy: (customRoles, { asc }) => [asc(customRoles.name)]
+        })
+
+        return { success: true, roles }
+    } catch (error) {
+        console.error('Error fetching custom roles:', error)
+        return { error: 'Error al cargar los roles personalizados' }
+    }
+}
+
+// Create a new custom role
+
+export async function createCustomRole(input: InsertCustomRoleInput, organizationId: string) {
+    const result = await getCurrentUserMembership(organizationId)
+
+    if (!result || !result.membership) {
+        return { error: 'No autorizado' }
+    }
+
+    // Only OWNER or ADMIN should be able to create custom roles
+    if (result.membership.role !== 'OWNER' && result.membership.role !== 'ADMIN') {
+        return { error: 'Solo los administradores pueden crear roles personalizados' }
+    }
+
+    const validation = insertCustomRoleSchema.safeParse(input)
+    if (!validation.success) {
+        return { error: validation.error.errors[0].message }
+    }
+
+    const { name, description, permissions } = validation.data
+
+    try {
+        await db.insert(customRoles).values({
+            organizationId,
+            name,
+            description,
+            permissions,
+        })
+
+        revalidatePath('/dashboard/settings')
+        return { success: true }
+    } catch (error) {
+        console.error('Error creating custom role:', error)
+        return { error: 'Error al crear el rol personalizado' }
+    }
+}
+
+// Update an existing custom role
+export async function updateCustomRole(input: UpdateCustomRoleInput, organizationId: string) {
+    const result = await getCurrentUserMembership(organizationId);
+
+    if (!result || !result.membership) {
+        return { error: 'No autorizado' };
+    }
+
+    if (result.membership.role !== 'OWNER' && result.membership.role !== 'ADMIN') {
+        return { error: 'Solo los administradores pueden editar roles personalizados' };
+    }
+
+    const validation = updateCustomRoleSchema.safeParse(input);
+    if (!validation.success) {
+        return { error: validation.error.errors[0].message };
+    }
+
+    const { id, name, description, permissions } = validation.data;
+
+    try {
+        const [updated] = await db.update(customRoles)
+            .set({ name, description, permissions })
+            .where(
+                and(
+                    eq(customRoles.id, id),
+                    eq(customRoles.organizationId, organizationId)
+                )
+            )
+            .returning();
+
+        if (!updated) {
+            return { error: 'No se encontró el rol especificado o no tienes acceso' };
+        }
+
+        revalidatePath('/dashboard/settings');
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating custom role:', error);
+        return { error: 'Error al actualizar el rol personalizado' };
+    }
+}
+
+// Delete custom role
+export async function deleteCustomRole(roleId: string, organizationId: string) {
+    const result = await getCurrentUserMembership(organizationId);
+
+    if (!result || !result.membership) {
+        return { error: 'No autorizado' };
+    }
+
+    if (result.membership.role !== 'OWNER' && result.membership.role !== 'ADMIN') {
+        return { error: 'Solo los administradores pueden eliminar roles personalizados' };
+    }
+
+    try {
+        // Validation Constraint: Check if users are assigned to this role
+        const assignedMemberships = await db.query.memberships.findMany({
+            where: and(
+                eq(memberships.customRoleId, roleId),
+                eq(memberships.organizationId, organizationId)
+            )
+        });
+
+        if (assignedMemberships.length > 0) {
+            return { error: 'No puedes eliminar este rol porque hay miembros del equipo que lo tienen asignado.' };
+        }
+
+        const [deleted] = await db.delete(customRoles)
+            .where(
+                and(
+                    eq(customRoles.id, roleId),
+                    eq(customRoles.organizationId, organizationId)
+                )
+            )
+            .returning();
+
+        if (!deleted) {
+            return { error: 'Rol no encontrado o ya eliminado' };
+        }
+
+        revalidatePath('/dashboard/settings');
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting custom role:', error);
+        return { error: 'Error al eliminar el rol personalizado' };
     }
 }

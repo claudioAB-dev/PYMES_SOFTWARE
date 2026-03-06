@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { getUserPermissions } from "@/lib/auth/permissions";
 
 export const dynamic = 'force-dynamic';
 
@@ -91,16 +92,18 @@ export default async function DashboardLayout({
 
     // For now, just take the first organization. In future, handle switching/active org.
     const activeOrganization = userMemberships[0].organization;
+    const userPermissions = await getUserPermissions(activeOrganization.id);
 
     return (
         <div className="h-full relative">
             <div className="hidden h-full md:flex md:w-72 md:flex-col md:fixed md:inset-y-0 z-[80] bg-gray-900">
-                <DashboardSidebar />
+                <DashboardSidebar userPermissions={userPermissions} />
             </div>
             <main className="md:pl-72">
                 <DashboardHeader
                     organizationName={activeOrganization.name}
                     userEmail={user.email}
+                    userPermissions={userPermissions}
                 />
                 <div className="p-4 md:p-8" suppressHydrationWarning>
                     {children}

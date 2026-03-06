@@ -16,6 +16,7 @@ export const createEntitySchema = z.object({
     commercialName: z.string().min(2, "Commercial name must be at least 2 characters").optional().or(z.literal("")),
     creditLimit: z.coerce.number().min(0).optional().default(0),
     creditDays: z.coerce.number().int().min(0).optional().default(0),
+    priceListId: z.string().uuid("Invalid Price List ID").optional().or(z.literal("")),
 });
 
 export type CreateEntityInput = z.infer<typeof createEntitySchema>;

@@ -161,6 +161,7 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
                     <InviteMemberDialog
                         organizationId={organizationId}
                         currentUserRole={currentUserRole}
+                        customRoles={teamData?.customRoles || []}
                         onSuccess={loadTeamData}
                     />
                 )}
@@ -216,13 +217,23 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge
-                                                    variant="secondary"
-                                                    className={`${roleColors[member.role as keyof typeof roleColors]} text-white font-medium`}
-                                                >
-                                                    <Shield className="h-3 w-3 mr-1" />
-                                                    {roleLabels[member.role as keyof typeof roleLabels]}
-                                                </Badge>
+                                                {member.customRole ? (
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="bg-emerald-600 text-white font-medium"
+                                                    >
+                                                        <Shield className="h-3 w-3 mr-1" />
+                                                        {member.customRole.name}
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className={`${roleColors[member.role as keyof typeof roleColors] || "bg-gray-500"} text-white font-medium`}
+                                                    >
+                                                        <Shield className="h-3 w-3 mr-1" />
+                                                        {roleLabels[member.role as keyof typeof roleLabels] || "Miembro"}
+                                                    </Badge>
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-sm text-muted-foreground">
                                                 {formatDate(member.createdAt)}
@@ -300,9 +311,15 @@ export function MembersTab({ organizationId, currentUserRole }: MembersTabProps)
                                                 {invitation.email}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline" className="font-medium">
-                                                    {roleLabels[invitation.role as keyof typeof roleLabels]}
-                                                </Badge>
+                                                {invitation.customRole ? (
+                                                    <Badge variant="outline" className="font-medium border-emerald-600 text-emerald-600">
+                                                        {invitation.customRole.name}
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="font-medium">
+                                                        {roleLabels[invitation.role as keyof typeof roleLabels] || "Miembro"}
+                                                    </Badge>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-1 text-sm bg-muted/40 w-fit px-2 py-1 rounded-md">

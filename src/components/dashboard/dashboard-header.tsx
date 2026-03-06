@@ -26,9 +26,10 @@ import {
 interface DashboardHeaderProps {
     organizationName: string;
     userEmail?: string;
+    userPermissions: string[];
 }
 
-export function DashboardHeader({ organizationName, userEmail }: DashboardHeaderProps) {
+export function DashboardHeader({ organizationName, userEmail, userPermissions }: DashboardHeaderProps) {
     const [isOpen, setIsOpen] = useState(false);
     const pathname = usePathname();
 
@@ -46,7 +47,7 @@ export function DashboardHeader({ organizationName, userEmail }: DashboardHeader
                     </SheetTrigger>
                     <SheetContent side="left" className="p-0 bg-slate-900 w-72 border-none">
                         <SheetTitle className="sr-only">Navegación</SheetTitle>
-                        <DashboardSidebar />
+                        <DashboardSidebar userPermissions={userPermissions} />
                     </SheetContent>
                 </Sheet>
                 <div className="font-semibold text-lg text-slate-800" suppressHydrationWarning>

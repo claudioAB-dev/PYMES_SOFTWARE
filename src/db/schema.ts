@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, decimal, pgEnum, boolean, integer, index, varchar, date } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, decimal, pgEnum, boolean, integer, index, uniqueIndex, varchar, date, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // --- ENUMS ---
@@ -46,11 +46,23 @@ export const organizations = pgTable("organizations", {
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 2a. Custom Roles (RBAC)
+export const customRoles = pgTable("custom_roles", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    permissions: jsonb("permissions").default([]).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // 3. Memberships (Many-to-Many Users <-> Orgs)
 export const memberships = pgTable("memberships", {
     id: uuid("id").defaultRandom().primaryKey(),
     userId: uuid("user_id").references(() => users.id).notNull(),
     organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    customRoleId: uuid("custom_role_id").references(() => customRoles.id),
     role: roleEnum("role").default('MEMBER').notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => {
@@ -76,6 +88,7 @@ export const entities = pgTable("entities", {
     razonSocialSat: text("razon_social_sat"),
     creditLimit: decimal("credit_limit", { precision: 12, scale: 2 }).default('0'),
     creditDays: integer("credit_days").default(0),
+    priceListId: uuid("price_list_id").references(() => priceLists.id),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -110,6 +123,31 @@ export const products = pgTable("products", {
     // sellPrice: decimal("sell_price", { precision: 12, scale: 2 }).default('0'), // Deprecated/Unused for now
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 5a. Price Lists
+export const priceLists = pgTable("price_lists", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const priceListItems = pgTable("price_list_items", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    priceListId: uuid("price_list_id").references(() => priceLists.id, { onDelete: 'cascade' }).notNull(),
+    productId: uuid("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
+    price: decimal("price", { precision: 12, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+    return {
+        uniqueProductList: uniqueIndex("idx_unique_product_price_list").on(table.priceListId, table.productId),
+    };
 });
 
 // 6. Orders (Headers)
@@ -159,6 +197,7 @@ export const invitations = pgTable("invitations", {
     role: roleEnum("role").default('MEMBER').notNull(),
     token: text("token").unique().notNull(),
     organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    customRoleId: uuid("custom_role_id").references(() => customRoles.id),
     invitedBy: uuid("invited_by").references(() => users.id).notNull(),
     expiresAt: timestamp("expires_at").notNull(),
     status: invitationStatusEnum("status").default('PENDING').notNull(),
@@ -294,6 +333,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     satClaveUnidad: one(satClavesUnidad, { fields: [products.satClaveUnidadId], references: [satClavesUnidad.id] }),
     orderItems: many(orderItems),
     inventoryMovements: many(inventoryMovements),
+    priceListItems: many(priceListItems),
 }));
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -304,6 +344,7 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const organizationsRelations = relations(organizations, ({ one, many }) => ({
     memberships: many(memberships),
+    customRoles: many(customRoles),
     entities: many(entities),
     products: many(products),
     orders: many(orders),
@@ -317,11 +358,19 @@ export const organizationsRelations = relations(organizations, ({ one, many }) =
     satRequests: many(satRequests),
     fiscalDocuments: many(fiscalDocuments),
     satCredential: one(satCredentials, { fields: [organizations.id], references: [satCredentials.organizationId] }),
+    priceLists: many(priceLists),
+    priceListItems: many(priceListItems),
 }));
 
 export const membershipsRelations = relations(memberships, ({ one }) => ({
     user: one(users, { fields: [memberships.userId], references: [users.id] }),
     organization: one(organizations, { fields: [memberships.organizationId], references: [organizations.id] }),
+    customRole: one(customRoles, { fields: [memberships.customRoleId], references: [customRoles.id] }),
+}));
+
+export const customRolesRelations = relations(customRoles, ({ one, many }) => ({
+    organization: one(organizations, { fields: [customRoles.organizationId], references: [organizations.id] }),
+    memberships: many(memberships),
 }));
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -344,6 +393,7 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 export const invitationsRelations = relations(invitations, ({ one }) => ({
     organization: one(organizations, { fields: [invitations.organizationId], references: [organizations.id] }),
     inviter: one(users, { fields: [invitations.invitedBy], references: [users.id] }),
+    customRole: one(customRoles, { fields: [invitations.customRoleId], references: [customRoles.id] }),
 }));
 
 export const inventoryMovementsRelations = relations(inventoryMovements, ({ one }) => ({
@@ -379,4 +429,21 @@ export const satRequestsRelations = relations(satRequests, ({ one }) => ({
 
 export const fiscalDocumentsRelations = relations(fiscalDocuments, ({ one }) => ({
     organization: one(organizations, { fields: [fiscalDocuments.organizationId], references: [organizations.id] }),
+}));
+
+export const priceListsRelations = relations(priceLists, ({ one, many }) => ({
+    organization: one(organizations, { fields: [priceLists.organizationId], references: [organizations.id] }),
+    items: many(priceListItems),
+    entities: many(entities),
+}));
+
+export const priceListItemsRelations = relations(priceListItems, ({ one }) => ({
+    organization: one(organizations, { fields: [priceListItems.organizationId], references: [organizations.id] }),
+    priceList: one(priceLists, { fields: [priceListItems.priceListId], references: [priceLists.id] }),
+    product: one(products, { fields: [priceListItems.productId], references: [products.id] }),
+}));
+
+export const entitiesRelations = relations(entities, ({ one }) => ({
+    organization: one(organizations, { fields: [entities.organizationId], references: [organizations.id] }),
+    priceList: one(priceLists, { fields: [entities.priceListId], references: [priceLists.id] }),
 }));

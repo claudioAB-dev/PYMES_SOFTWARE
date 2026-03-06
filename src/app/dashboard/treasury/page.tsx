@@ -10,8 +10,25 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { requirePermission } from "@/lib/auth/permissions";
+import { createClient } from "@/lib/supabase/server";
+import { db } from "@/db";
+import { memberships } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export default async function TreasuryPage() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+        const userMembership = await db.query.memberships.findFirst({
+            where: eq(memberships.userId, user.id),
+        });
+        if (userMembership) {
+            await requirePermission('view:treasury', userMembership.organizationId);
+        }
+    }
+
     const today = new Date();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
