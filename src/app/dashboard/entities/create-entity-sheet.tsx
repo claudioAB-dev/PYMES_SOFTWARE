@@ -33,14 +33,10 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-// import { useToast } from "@/hooks/use-toast"; // Assuming this exists or I'll need to create it/install it. 
-// Shadcn usually installs a toast hook. If not, I'll skip toast for now or use alert.
 
 export function CreateEntitySheet() {
     const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
-    // const { toast } = useToast(); 
-
     const form = useForm<CreateEntityInput>({
         resolver: zodResolver(createEntitySchema) as any,
         defaultValues: {

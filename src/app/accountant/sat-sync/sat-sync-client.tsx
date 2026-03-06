@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Download, RefreshCw, FileText, CheckCircle2, XCircle, Clock, Loader2, Calendar as CalendarIcon, AlertCircle, PlusCircle, FileCode, AlertTriangle } from "lucide-react";
+import { Download, RefreshCw, FileText, CheckCircle2, XCircle, Clock, Loader2, Calendar as CalendarIcon, AlertCircle, PlusCircle, FileCode, AlertTriangle, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -174,6 +174,10 @@ export function SatSyncClient({ organizationId }: SatSyncClientProps) {
     const missingInSat = conciliationData?.filter(r => r.status === 'MISSING_IN_SAT') || [];
     const matched = conciliationData?.filter(r => r.status === 'MATCHED') || [];
 
+    // Derived values for new KPIs
+    const totalIngresos = conciliationData?.filter(r => r.type === 'I').reduce((acc, curr) => acc + parseFloat(curr.total || "0"), 0) || 0;
+    const totalEgresos = conciliationData?.filter(r => r.type === 'E').reduce((acc, curr) => acc + parseFloat(curr.total || "0"), 0) || 0;
+
     const totalXmls = conciliationData?.length || 0;
     const totalMatched = matched.length;
     const totalMissingSystem = missingInSystem.length;
@@ -186,6 +190,7 @@ export function SatSyncClient({ organizationId }: SatSyncClientProps) {
                     <TableHead>UUID</TableHead>
                     <TableHead>Fecha</TableHead>
                     <TableHead>Emisor/Receptor (RFC)</TableHead>
+                    <TableHead>Razón Social</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     {showAction && <TableHead className="text-right">Acciones</TableHead>}
@@ -203,7 +208,8 @@ export function SatSyncClient({ organizationId }: SatSyncClientProps) {
                         <TableRow key={`${item.uuid}-${idx}`} className={showAction ? "bg-red-50/20 hover:bg-red-50/40" : ""}>
                             <TableCell className="font-mono text-xs">{item.uuid.substring(0, 8).toUpperCase()}...</TableCell>
                             <TableCell>{item.issueDate ? format(new Date(item.issueDate), "dd/MM/yyyy", { locale: es }) : "N/A"}</TableCell>
-                            <TableCell>{item.type === 'I' ? item.rfc : item.receiverRfc}</TableCell>
+                            <TableCell className="font-medium">{item.type === 'I' ? item.rfc : item.receiverRfc}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground truncate max-w-[200px]">{item.type === 'I' ? item.issuerName || 'N/A' : item.receiverName || 'N/A'}</TableCell>
                             <TableCell>
                                 <Badge variant="outline" className={item.type === 'I' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200'}>
                                     {item.type === 'I' ? 'INGRESO' : item.type === 'E' ? 'EGRESO' : 'OTRO'}
@@ -255,52 +261,56 @@ export function SatSyncClient({ organizationId }: SatSyncClientProps) {
                                 </div>
                             </CardContent>
                         </Card>
-                        <Card className="shadow-sm border-green-200 bg-green-50/30">
+                        <Card className="shadow-sm border-blue-200 bg-blue-50/30">
                             <CardContent className="p-6 flex items-center gap-4">
-                                <div className="bg-green-100 p-3 rounded-full text-green-600">
-                                    <CheckCircle2 className="h-6 w-6" />
+                                <div className="bg-blue-100 p-3 rounded-full text-blue-600">
+                                    <ArrowUpRight className="h-6 w-6" />
                                 </div>
                                 <div>
-                                    <p className="text-sm text-green-700 font-medium">Conciliados</p>
-                                    <h3 className="text-2xl font-bold text-green-700">{totalMatched}</h3>
+                                    <p className="text-sm text-blue-700 font-medium">Total Ingresos</p>
+                                    <h3 className="text-2xl font-bold text-blue-700">
+                                        {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalIngresos)}
+                                    </h3>
                                 </div>
                             </CardContent>
                         </Card>
-                        <Card className="shadow-sm border-red-200 bg-red-50/30">
+                        <Card className="shadow-sm border-orange-200 bg-orange-50/30">
+                            <CardContent className="p-6 flex items-center gap-4">
+                                <div className="bg-orange-100 p-3 rounded-full text-orange-600">
+                                    <ArrowDownRight className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-orange-700 font-medium">Total Egresos</p>
+                                    <h3 className="text-2xl font-bold text-orange-700">
+                                        {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalEgresos)}
+                                    </h3>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className={`shadow-sm border-red-200 ${totalMissingSystem > 0 ? 'bg-red-50/50 ring-2 ring-red-500/50' : 'bg-red-50/30'}`}>
                             <CardContent className="p-6 flex items-center gap-4">
                                 <div className="bg-red-100 p-3 rounded-full text-red-600">
                                     <AlertCircle className="h-6 w-6" />
                                 </div>
                                 <div>
-                                    <p className="text-sm text-red-700 font-medium">Faltantes en Sistema</p>
+                                    <p className="text-sm text-red-700 font-medium">Total Faltantes</p>
                                     <h3 className="text-2xl font-bold text-red-700">{totalMissingSystem}</h3>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <Card className="shadow-sm border-yellow-200 bg-yellow-50/30">
-                            <CardContent className="p-6 flex items-center gap-4">
-                                <div className="bg-yellow-100 p-3 rounded-full text-yellow-600">
-                                    <AlertTriangle className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-yellow-700 font-medium">Faltantes en SAT / Canc.</p>
-                                    <h3 className="text-2xl font-bold text-yellow-700">{totalMissingSat}</h3>
                                 </div>
                             </CardContent>
                         </Card>
                     </div>
 
-                    <Tabs defaultValue="attention_required" className="w-full">
+                    <Tabs defaultValue="missing" className="w-full">
                         <TabsList className="grid w-full grid-cols-2 mb-6 h-auto p-1 bg-muted/50 rounded-lg">
-                            <TabsTrigger value="attention_required" className="py-3 text-base data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-red-700 font-medium">
-                                Atención Requerida ({totalMissingSystem})
+                            <TabsTrigger value="missing" className="py-3 text-base data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-red-700 font-medium">
+                                Faltantes ({totalMissingSystem})
                             </TabsTrigger>
-                            <TabsTrigger value="matched" className="py-3 text-base data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-green-700 font-medium">
-                                Documentos Conciliados ({totalMatched})
+                            <TabsTrigger value="reconciled" className="py-3 text-base data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-green-700 font-medium">
+                                Conciliados ({totalMatched})
                             </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="attention_required" className="mt-0">
+                        <TabsContent value="missing" className="mt-0">
                             <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
                                 <div className="p-4 bg-red-50/50 border-b flex items-center justify-between">
                                     <div className="flex items-center gap-2 text-red-800 text-sm font-medium">
@@ -310,22 +320,10 @@ export function SatSyncClient({ organizationId }: SatSyncClientProps) {
                                     <Button variant="outline" size="sm" onClick={() => setConciliationData(null)} className="h-8">Limpiar Todo</Button>
                                 </div>
                                 <ResultsTable items={missingInSystem} showAction={true} />
-
-                                {missingInSat.length > 0 && (
-                                    <div className="mt-8">
-                                        <div className="p-4 bg-yellow-50/50 border-y flex items-center gap-2 text-yellow-800 text-sm font-medium">
-                                            <AlertTriangle className="h-4 w-4" />
-                                            <span>Posibles Cancelados o Faltantes en el SAT ({missingInSat.length})</span>
-                                        </div>
-                                        <div className="opacity-75">
-                                            <ResultsTable items={missingInSat} />
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </TabsContent>
 
-                        <TabsContent value="matched" className="mt-0">
+                        <TabsContent value="reconciled" className="mt-0">
                             <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
                                 <div className="p-4 bg-green-50/50 border-b flex items-center justify-between">
                                     <div className="flex items-center gap-2 text-green-800 text-sm font-medium">
@@ -388,7 +386,7 @@ export function SatSyncClient({ organizationId }: SatSyncClientProps) {
                             <Button
                                 onClick={onSubmit}
                                 disabled={isSubmitting || !month || !year}
-                                className="flex-1 sm:flex-none transition-all"
+                                className="flex-1 sm:flex-none transition-all cursor-pointer"
                             >
                                 {isSubmitting ? (
                                     <>
@@ -402,33 +400,6 @@ export function SatSyncClient({ organizationId }: SatSyncClientProps) {
                                     </>
                                 )}
                             </Button>
-
-                            {process.env.NODE_ENV === 'development' && (
-                                <Button
-                                    onClick={async () => {
-                                        setIsSubmitting(true);
-                                        try {
-                                            const result = await requestMockMassiveSync();
-                                            if (result.success) {
-                                                toast.success(result.message || "Sandbox encolado exitosamente.");
-                                                await fetchRequests();
-                                            } else {
-                                                toast.error(result.error || "Error al solicitar el Sandbox.");
-                                            }
-                                        } catch (error) {
-                                            toast.error("Ocurrió un error inesperado al encolar el Sandbox.");
-                                        } finally {
-                                            setIsSubmitting(false);
-                                        }
-                                    }}
-                                    disabled={isSubmitting}
-                                    variant="outline"
-                                    className="flex-1 sm:flex-none transition-all whitespace-nowrap"
-                                >
-                                    <RefreshCw className="w-4 h-4 mr-2" />
-                                    Simular (Sandbox)
-                                </Button>
-                            )}
                         </div>
                     </div>
                 </CardContent>
@@ -515,12 +486,36 @@ export function SatSyncClient({ organizationId }: SatSyncClientProps) {
                     {selectedInvoice && (
                         <div className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right text-muted-foreground">UUID</Label>
+                                <div className="col-span-3 font-mono text-sm">
+                                    {selectedInvoice.uuid}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right text-muted-foreground">RFC</Label>
+                                <div className="col-span-3 text-sm">
+                                    {selectedInvoice.type === 'I' ? selectedInvoice.rfc : selectedInvoice.receiverRfc}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right text-muted-foreground">Razón Social</Label>
+                                <div className="col-span-3 text-sm font-medium">
+                                    {selectedInvoice.type === 'I' ? selectedInvoice.issuerName || "N/A" : selectedInvoice.receiverName || "N/A"}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right text-muted-foreground">Fecha</Label>
+                                <div className="col-span-3 text-sm">
+                                    {selectedInvoice.issueDate ? format(new Date(selectedInvoice.issueDate), "PPP p", { locale: es }) : "N/A"}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4 mt-2 pt-2 border-t">
                                 <Label className="text-right text-muted-foreground">Monto</Label>
                                 <div className="col-span-3 font-semibold text-lg text-primary">
                                     {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(parseFloat(selectedInvoice.total || "0"))}
                                 </div>
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
+                            <div className="grid grid-cols-4 items-center gap-4 mb-4">
                                 <Label className="text-right text-muted-foreground">Tipo</Label>
                                 <div className="col-span-3">
                                     <Badge variant="outline" className={selectedInvoice.type === 'I' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}>

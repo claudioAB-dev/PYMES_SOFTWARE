@@ -1,0 +1,50 @@
+[
+  {
+    "table_name": "users"
+  },
+  {
+    "table_name": "products"
+  },
+  {
+    "table_name": "invitations"
+  },
+  {
+    "table_name": "fiscal_documents"
+  },
+  {
+    "table_name": "employees"
+  },
+  {
+    "table_name": "payrolls"
+  },
+  {
+    "table_name": "sat_requests"
+  },
+  {
+    "table_name": "payments"
+  },
+  {
+    "table_name": "inventory_movements"
+  },
+  {
+    "table_name": "organizations"
+  },
+  {
+    "table_name": "memberships"
+  },
+  {
+    "table_name": "entities"
+  },
+  {
+    "table_name": "financial_accounts"
+  },
+  {
+    "table_name": "treasury_transactions"
+  },
+  {
+    "table_name": "orders"
+  },
+  {
+    "table_name": "order_items"
+  }
+]

@@ -60,7 +60,7 @@ export default async function SettingsPage() {
                     <MembersTab organizationId={organization.id} currentUserRole={role} />
                 </TabsContent>
                 <TabsContent value="taxes" className="space-y-4">
-                    <TaxesTab />
+                    <TaxesTab organizationId={organization.id} />
                 </TabsContent>
                 <TabsContent value="preferences" className="space-y-4">
                     <PreferencesTab />

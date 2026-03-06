@@ -17,6 +17,9 @@ export const productSchema = z.object({
         .min(0, "El stock no puede ser negativo")
         .optional(),
     organizationId: z.string().uuid().optional(),
+    satClaveProdServId: z.string().length(8, "Debe tener exactamente 8 caracteres").optional(),
+    satClaveUnidadId: z.string().min(1).max(3, "Máximo 3 caracteres").optional(),
+    esObjetoImpuesto: z.string().optional(),
 });
 
 export type ProductInput = z.infer<typeof productSchema>;

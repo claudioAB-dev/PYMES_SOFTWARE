@@ -2,7 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db' // Assuming db is exported from '@/db' or similar
-import { organizations, memberships } from '@/db/schema' // Add memberships import
+import { organizations, memberships, satCredentials } from '@/db/schema' // Add memberships import
+import { encryptText } from '@/lib/security/encryption'
 import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -128,5 +129,73 @@ export async function updateOrganization(input: z.infer<typeof updateOrgSchema>)
     } catch (error) {
         console.error('Update error:', error)
         return { error: 'Failed to update organization' }
+    }
+}
+
+export async function uploadCSD(formData: FormData) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        return { error: 'Unauthorized' }
+    }
+
+    const organizationId = formData.get('organizationId') as string
+    const rfc = formData.get('rfc') as string
+    const password = formData.get('password') as string
+    const cerFile = formData.get('cerFile') as File
+    const keyFile = formData.get('keyFile') as File
+
+    if (!organizationId || !rfc || !password || !cerFile || !keyFile) {
+        return { error: 'Missing required fields' }
+    }
+
+    // Check membership
+    const membership = await db.query.memberships.findFirst({
+        where: and(
+            eq(memberships.userId, user.id),
+            eq(memberships.organizationId, organizationId)
+        )
+    })
+
+    if (!membership || (membership.role !== 'OWNER' && membership.role !== 'ADMIN')) {
+        return { error: 'Forbidden: You do not have permission to manage CSDs' }
+    }
+
+    try {
+        const cerArrayBuffer = await cerFile.arrayBuffer()
+        const keyArrayBuffer = await keyFile.arrayBuffer()
+
+        const cerBase64 = Buffer.from(cerArrayBuffer).toString('base64')
+        const keyBase64 = Buffer.from(keyArrayBuffer).toString('base64')
+
+        const { encryptedText, ivHex } = encryptText(password)
+
+        await db.insert(satCredentials)
+            .values({
+                organizationId,
+                rfc,
+                cerBase64,
+                keyBase64,
+                encryptedPassword: encryptedText,
+                iv: ivHex,
+            })
+            .onConflictDoUpdate({
+                target: satCredentials.organizationId,
+                set: {
+                    rfc,
+                    cerBase64,
+                    keyBase64,
+                    encryptedPassword: encryptedText,
+                    iv: ivHex,
+                    updatedAt: new Date(),
+                }
+            })
+
+        revalidatePath('/dashboard/settings')
+        return { success: true }
+    } catch (error) {
+        console.error('CSD upload error:', error)
+        return { error: 'Failed to process and store CSD' }
     }
 }

@@ -69,10 +69,27 @@ export const entities = pgTable("entities", {
     legalName: text("legal_name"),
     taxId: text("tax_id"),
     postalCode: text("postal_code"),
+    rfc: varchar("rfc", { length: 13 }),
+    regimenFiscal: varchar("regimen_fiscal", { length: 3 }),
+    codigoPostal: varchar("codigo_postal", { length: 5 }),
+    usoCfdiDefault: varchar("uso_cfdi_default", { length: 3 }),
+    razonSocialSat: text("razon_social_sat"),
     creditLimit: decimal("credit_limit", { precision: 12, scale: 2 }).default('0'),
     creditDays: integer("credit_days").default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 4a. SAT Catalogs
+export const satClavesProdServ = pgTable("sat_claves_prod_serv", {
+    id: text("id").primaryKey(),
+    descripcion: text("descripcion").notNull(),
+    palabrasSimilares: text("palabras_similares"),
+});
+
+export const satClavesUnidad = pgTable("sat_claves_unidad", {
+    id: text("id").primaryKey(),
+    nombre: text("nombre").notNull(),
 });
 
 // 5. Products
@@ -87,6 +104,9 @@ export const products = pgTable("products", {
     stock: decimal("stock", { precision: 12, scale: 2 }).default('0').notNull(), // Using decimal for stock to allow fractional units if needed, though zod uses int validation I'll stick to decimal for flexibility or integer if strictly requested. User said "stock: z.number().int()". I'll use integer in DB for strictness if requested, but decimal is safer for general ERPs. User requirement: "stock: z.number().int()". I'll use integer in DB.
     archived: boolean("archived").default(false).notNull(),
     cost: decimal("cost", { precision: 12, scale: 2 }).default('0').notNull(),
+    satClaveProdServId: text("sat_clave_prod_serv_id").references(() => satClavesProdServ.id),
+    satClaveUnidadId: text("sat_clave_unidad_id").references(() => satClavesUnidad.id),
+    esObjetoImpuesto: text("es_objeto_impuesto").default('02'),
     // sellPrice: decimal("sell_price", { precision: 12, scale: 2 }).default('0'), // Deprecated/Unused for now
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -254,14 +274,35 @@ export const fiscalDocuments = pgTable("fiscal_documents", {
     updatedAt: timestamp("updated_at"),
 });
 
+// 17. SAT Credentials (Bóveda CSD)
+export const satCredentials = pgTable("sat_credentials", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).unique().notNull(),
+    rfc: varchar("rfc", { length: 13 }).notNull(),
+    cerBase64: text("cer_base64").notNull(),
+    keyBase64: text("key_base64").notNull(),
+    encryptedPassword: text("encrypted_password").notNull(),
+    iv: text("iv").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // --- RELATIONS ---
+export const productsRelations = relations(products, ({ one, many }) => ({
+    organization: one(organizations, { fields: [products.organizationId], references: [organizations.id] }),
+    satClaveProdServ: one(satClavesProdServ, { fields: [products.satClaveProdServId], references: [satClavesProdServ.id] }),
+    satClaveUnidad: one(satClavesUnidad, { fields: [products.satClaveUnidadId], references: [satClavesUnidad.id] }),
+    orderItems: many(orderItems),
+    inventoryMovements: many(inventoryMovements),
+}));
+
 export const usersRelations = relations(users, ({ many }) => ({
     memberships: many(memberships),
     inventoryMovements: many(inventoryMovements),
     treasuryTransactions: many(treasuryTransactions),
 }));
 
-export const organizationsRelations = relations(organizations, ({ many }) => ({
+export const organizationsRelations = relations(organizations, ({ one, many }) => ({
     memberships: many(memberships),
     entities: many(entities),
     products: many(products),
@@ -275,6 +316,7 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
     treasuryTransactions: many(treasuryTransactions),
     satRequests: many(satRequests),
     fiscalDocuments: many(fiscalDocuments),
+    satCredential: one(satCredentials, { fields: [organizations.id], references: [satCredentials.organizationId] }),
 }));
 
 export const membershipsRelations = relations(memberships, ({ one }) => ({

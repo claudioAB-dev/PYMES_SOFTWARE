@@ -90,16 +90,18 @@ export function ManualUploadForm({ organizationId }: ManualUploadFormProps) {
             </CardHeader>
             <CardContent className="flex-1 space-y-4">
                 <div
-                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
+                    className={`border-2 border-dashed rounded-lg p-10 text-center transition-all duration-200 cursor-pointer ${isDragging ? 'border-primary bg-primary/10 scale-[1.02] shadow-sm' : 'border-muted-foreground/30 bg-muted/30 hover:bg-muted/50 hover:border-primary/50'
                         } ${isSubmitting ? 'opacity-50 pointer-events-none' : ''}`}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
                 >
-                    <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-sm font-semibold mb-1">Arrastra tus XMLs aquí o haz clic para explorar</h3>
-                    <p className="text-xs text-muted-foreground">Puedes seleccionar múltiples archivos a la vez.</p>
+                    <UploadCloud className={`mx-auto h-12 w-12 mb-4 transition-colors ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <h3 className={`text-base font-semibold mb-1 transition-colors ${isDragging ? 'text-primary' : ''}`}>
+                        Arrastra tus XMLs aquí o haz clic para explorar
+                    </h3>
+                    <p className="text-sm text-muted-foreground">Puedes seleccionar múltiples archivos a la vez.</p>
                     <input
                         type="file"
                         ref={fileInputRef}

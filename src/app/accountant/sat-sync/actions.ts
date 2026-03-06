@@ -185,6 +185,8 @@ export type ConciliationResult = {
     type: string;
     rfc: string; // issuerRfc
     receiverRfc: string;
+    issuerName?: string;
+    receiverName?: string;
     issueDate: string;
     total: string;
     status: 'MISSING_IN_SYSTEM' | 'MISSING_IN_SAT' | 'MATCHED';
@@ -231,7 +233,7 @@ export async function processSatXmls(formData: FormData) {
         });
 
         // 1. Process uploaded XMLs
-        const satXmlData = new Map<string, { uuid: string; type: string; rfc: string; receiverRfc: string; issueDate: string; total: string; }>();
+        const satXmlData = new Map<string, { uuid: string; type: string; rfc: string; receiverRfc: string; issuerName: string; receiverName: string; issueDate: string; total: string; }>();
         const satUuids: string[] = [];
 
         for (const file of files) {
@@ -248,6 +250,8 @@ export async function processSatXmls(formData: FormData) {
 
                 const issuerRfc = emisor.Rfc;
                 const receiverRfc = receptor.Rfc;
+                const issuerName = emisor.Nombre || "";
+                const receiverName = receptor.Nombre || "";
                 const type = comprobante.TipoDeComprobante;
                 const total = typeof comprobante.Total === 'number' ? comprobante.Total.toString() : (comprobante.Total || "0");
                 const issueDateStr = comprobante.Fecha;
@@ -269,7 +273,7 @@ export async function processSatXmls(formData: FormData) {
                 const uuid = timbreObj.UUID?.toUpperCase();
 
                 if (uuid) {
-                    satXmlData.set(uuid, { uuid, type, rfc: issuerRfc, receiverRfc, issueDate: issueDateStr || '', total });
+                    satXmlData.set(uuid, { uuid, type, rfc: issuerRfc, receiverRfc, issuerName, receiverName, issueDate: issueDateStr || '', total });
                     satUuids.push(uuid);
                 }
             } catch (err) {
