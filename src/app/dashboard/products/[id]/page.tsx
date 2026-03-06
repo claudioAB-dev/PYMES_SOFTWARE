@@ -103,7 +103,7 @@ export default async function ProductDetailsPage(props: { params: Promise<{ id: 
             </div>
 
             {product.type === "PRODUCT" && (
-                <div className="bg-card shadow-sm border rounded-lg overflow-hidden mt-8">
+                <div className="bg-card shadow-sm border rounded-lg overflow-x-auto mt-8">
                     <div className="p-6 border-b flex justify-between items-center">
                         <div>
                             <h3 className="text-lg font-semibold">Kardex (Historial de Movimientos)</h3>

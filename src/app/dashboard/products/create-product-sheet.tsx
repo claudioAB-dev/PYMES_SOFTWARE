@@ -16,6 +16,7 @@ import {
     SheetTitle,
     SheetTrigger,
     SheetFooter,
+    SheetClose,
 } from "@/components/ui/sheet";
 import {
     Form,
@@ -32,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
 function AsyncCombobox({
     value,
@@ -171,85 +173,115 @@ export function CreateProductSheet() {
             <SheetTrigger asChild>
                 <Button>Nuevo Producto</Button>
             </SheetTrigger>
-            <SheetContent>
+            <SheetContent className="sm:max-w-xl flex flex-col h-full w-full">
                 <SheetHeader>
                     <SheetTitle>Crear Producto</SheetTitle>
                     <SheetDescription>
                         Agrega un nuevo producto o servicio a tu inventario.
                     </SheetDescription>
                 </SheetHeader>
-                <div className="py-4">
+                <div className="flex-1 overflow-y-auto px-1 py-4 max-h-[calc(100vh-12rem)]">
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                            <FormField
-                                control={form.control}
-                                name="type"
-                                render={({ field }) => (
-                                    <FormItem className="space-y-3">
-                                        <FormLabel>Tipo</FormLabel>
-                                        <FormControl>
-                                            <RadioGroup
-                                                onValueChange={field.onChange}
-                                                defaultValue={field.value}
-                                                className="flex flex-col space-y-1"
-                                            >
-                                                <FormItem className="flex items-center space-x-3 space-y-0">
-                                                    <FormControl>
-                                                        <RadioGroupItem value="PRODUCT" />
-                                                    </FormControl>
-                                                    <FormLabel className="font-normal">
-                                                        Producto
-                                                    </FormLabel>
-                                                </FormItem>
-                                                <FormItem className="flex items-center space-x-3 space-y-0">
-                                                    <FormControl>
-                                                        <RadioGroupItem value="SERVICE" />
-                                                    </FormControl>
-                                                    <FormLabel className="font-normal">
-                                                        Servicio
-                                                    </FormLabel>
-                                                </FormItem>
-                                            </RadioGroup>
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                        <form id="create-product-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
-                            <FormField
-                                control={form.control}
-                                name="name"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Nombre *</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Ej. Laptop HP" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="md:col-span-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="type"
+                                        render={({ field }) => (
+                                            <FormItem className="space-y-3">
+                                                <FormLabel>Tipo</FormLabel>
+                                                <FormControl>
+                                                    <RadioGroup
+                                                        onValueChange={field.onChange}
+                                                        defaultValue={field.value}
+                                                        className="flex flex-col space-y-1"
+                                                    >
+                                                        <FormItem className="flex items-center space-x-3 space-y-0">
+                                                            <FormControl>
+                                                                <RadioGroupItem value="PRODUCT" />
+                                                            </FormControl>
+                                                            <FormLabel className="font-normal">
+                                                                Producto
+                                                            </FormLabel>
+                                                        </FormItem>
+                                                        <FormItem className="flex items-center space-x-3 space-y-0">
+                                                            <FormControl>
+                                                                <RadioGroupItem value="SERVICE" />
+                                                            </FormControl>
+                                                            <FormLabel className="font-normal">
+                                                                Servicio
+                                                            </FormLabel>
+                                                        </FormItem>
+                                                    </RadioGroup>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
 
-                            <FormField
-                                control={form.control}
-                                name="sku"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>SKU</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="OPCIONAL-001" {...field} value={field.value || ""} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                <div className="md:col-span-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="name"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Nombre *</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Ej. Laptop HP" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
 
-                            <div className="flex gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="sku"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>SKU</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="OPCIONAL-001" {...field} value={field.value || ""} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {productType === "PRODUCT" && (
+                                    <FormField
+                                        control={form.control}
+                                        name="stock"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Stock Inicial</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="0"
+                                                        {...field}
+                                                        value={field.value ?? ""}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value === "" ? undefined : Number(e.target.value);
+                                                            field.onChange(val);
+                                                        }}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
+
                                 <FormField
                                     control={form.control}
                                     name="price"
                                     render={({ field }) => (
-                                        <FormItem className="flex-1">
+                                        <FormItem>
                                             <FormLabel>Precio Venta *</FormLabel>
                                             <FormControl>
                                                 <Input
@@ -268,7 +300,7 @@ export function CreateProductSheet() {
                                     control={form.control}
                                     name="cost"
                                     render={({ field }) => (
-                                        <FormItem className="flex-1">
+                                        <FormItem>
                                             <FormLabel>Costo *</FormLabel>
                                             <FormControl>
                                                 <Input
@@ -287,129 +319,126 @@ export function CreateProductSheet() {
                                         </FormItem>
                                     )}
                                 />
+
+                                <div className="md:col-span-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="priceIncludesVat"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                                <div className="space-y-0.5">
+                                                    <FormLabel>
+                                                        ¿El precio incluye IVA (16%)?
+                                                    </FormLabel>
+                                                </div>
+                                                <FormControl>
+                                                    <Switch
+                                                        checked={!!field.value}
+                                                        onCheckedChange={field.onChange}
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
                             </div>
 
-                            {productType === "PRODUCT" && (
-                                <FormField
-                                    control={form.control}
-                                    name="stock"
-                                    render={({ field }) => (
-                                        <FormItem className="flex-1">
-                                            <FormLabel>Stock Inicial</FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    placeholder="0"
-                                                    {...field}
-                                                    value={field.value ?? ""}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value === "" ? undefined : Number(e.target.value);
-                                                        field.onChange(val);
-                                                    }}
+                            <div className="pt-2 space-y-4">
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-medium leading-none">Datos Fiscales (CFDI 4.0)</h3>
+                                    <p className="text-[0.8rem] text-muted-foreground">
+                                        Requerido para la facturación electrónica.
+                                    </p>
+                                </div>
+                                <Separator />
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="md:col-span-2">
+                                        <FormField
+                                            control={form.control}
+                                            name="esObjetoImpuesto"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Objeto de Impuesto (SAT)</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Selecciona si es objeto de impuesto" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="01">01 - No objeto de impuesto</SelectItem>
+                                                            <SelectItem value="02">02 - Sí objeto de impuesto</SelectItem>
+                                                            <SelectItem value="03">03 - Sí objeto del impuesto y no obligado al desglose</SelectItem>
+                                                            <SelectItem value="04">04 - Sí objeto del impuesto y no causa impuesto</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+
+                                    <FormField
+                                        control={form.control}
+                                        name="satClaveProdServId"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                                <FormLabel>Clave Prod/Serv (SAT)</FormLabel>
+                                                <AsyncCombobox
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    endpoint="/api/sat/catalogs/prod-serv"
+                                                    placeholder="Selecciona una clave..."
+                                                    emptyText="No se encontraron claves."
+                                                    searchPlaceholder="Buscar por clave o descripción..."
+                                                    idKey="id"
+                                                    labelKey="descripcion"
                                                 />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            )}
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
 
-                            <FormField
-                                control={form.control}
-                                name="priceIncludesVat"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                                        <div className="space-y-0.5">
-                                            <FormLabel>
-                                                ¿El precio incluye IVA (16%)?
-                                            </FormLabel>
-                                        </div>
-                                        <FormControl>
-                                            <Switch
-                                                checked={!!field.value}
-                                                onCheckedChange={field.onChange}
-                                            />
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
+                                    <FormField
+                                        control={form.control}
+                                        name="satClaveUnidadId"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                                <FormLabel>Clave Unidad (SAT)</FormLabel>
+                                                <AsyncCombobox
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    endpoint="/api/sat/catalogs/unidades"
+                                                    placeholder="Selecciona una unidad..."
+                                                    emptyText="No se encontraron unidades."
+                                                    searchPlaceholder="Buscar por clave o nombre..."
+                                                    idKey="id"
+                                                    labelKey="nombre"
+                                                />
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            </div>
 
-                            <FormField
-                                control={form.control}
-                                name="esObjetoImpuesto"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Objeto de Impuesto (SAT)</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Selecciona si es objeto de impuesto" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="01">01 - No objeto de impuesto</SelectItem>
-                                                <SelectItem value="02">02 - Sí objeto de impuesto</SelectItem>
-                                                <SelectItem value="03">03 - Sí objeto del impuesto y no obligado al desglose</SelectItem>
-                                                <SelectItem value="04">04 - Sí objeto del impuesto y no causa impuesto</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
-                                name="satClaveProdServId"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel>Clave Prod/Serv (SAT)</FormLabel>
-                                        <AsyncCombobox
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            endpoint="/api/sat/catalogs/prod-serv"
-                                            placeholder="Selecciona una clave..."
-                                            emptyText="No se encontraron claves."
-                                            searchPlaceholder="Buscar por clave o descripción..."
-                                            idKey="id"
-                                            labelKey="descripcion"
-                                        />
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
-                                name="satClaveUnidadId"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel>Clave Unidad (SAT)</FormLabel>
-                                        <AsyncCombobox
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            endpoint="/api/sat/catalogs/unidades"
-                                            placeholder="Selecciona una unidad..."
-                                            emptyText="No se encontraron unidades."
-                                            searchPlaceholder="Buscar por clave o nombre..."
-                                            idKey="id"
-                                            labelKey="nombre"
-                                        />
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
-                            <SheetFooter className="mt-6">
-                                <Button type="submit" disabled={isPending}>
-                                    {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {isPending ? "Guardando..." : "Guardar"}
-                                </Button>
-                            </SheetFooter>
                         </form>
                     </Form>
                 </div>
+
+                <div className="sticky bottom-0 border-t bg-background pt-4 pb-2 px-1 flex shrink-0 items-center justify-end gap-2">
+                    <SheetClose asChild>
+                        <Button type="button" variant="outline" disabled={isPending}>
+                            Cancelar
+                        </Button>
+                    </SheetClose>
+                    <Button type="submit" form="create-product-form" disabled={isPending}>
+                        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isPending ? "Guardando..." : "Guardar Producto"}
+                    </Button>
+                </div>
             </SheetContent>
-        </Sheet >
+        </Sheet>
     );
 }

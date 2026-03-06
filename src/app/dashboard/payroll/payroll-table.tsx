@@ -408,7 +408,7 @@ export function PayrollTable<TData, TValue>({
                     Exportar CSV
                 </Button>
             </div>
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (

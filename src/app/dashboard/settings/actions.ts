@@ -199,3 +199,41 @@ export async function uploadCSD(formData: FormData) {
         return { error: 'Failed to process and store CSD' }
     }
 }
+
+export async function getCSDStatus(organizationId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        return { isConfigured: false }
+    }
+
+    const membership = await db.query.memberships.findFirst({
+        where: and(
+            eq(memberships.userId, user.id),
+            eq(memberships.organizationId, organizationId)
+        )
+    })
+
+    if (!membership) {
+        return { isConfigured: false }
+    }
+
+    const csd = await db.query.satCredentials.findFirst({
+        where: eq(satCredentials.organizationId, organizationId),
+        columns: {
+            rfc: true,
+            updatedAt: true,
+        }
+    })
+
+    if (csd) {
+        return {
+            isConfigured: true,
+            rfc: csd.rfc,
+            updatedAt: csd.updatedAt
+        }
+    }
+
+    return { isConfigured: false }
+}

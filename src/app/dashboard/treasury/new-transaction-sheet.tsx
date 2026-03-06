@@ -17,6 +17,8 @@ import {
     SheetHeader,
     SheetTitle,
     SheetTrigger,
+    SheetFooter,
+    SheetClose,
 } from "@/components/ui/sheet"
 import {
     Form,
@@ -93,138 +95,147 @@ export function NewTransactionSheet({ accounts }: NewTransactionSheetProps) {
                     Nueva Transacción
                 </Button>
             </SheetTrigger>
-            <SheetContent>
+            <SheetContent className="flex flex-col h-full">
                 <SheetHeader>
                     <SheetTitle>Registrar Transacción Manual</SheetTitle>
                     <SheetDescription>
                         Registra un ingreso o gasto que no esté ligado a una orden.
                     </SheetDescription>
                 </SheetHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
+                <div className="flex-1 overflow-y-auto px-1 py-4 max-h-[calc(100vh-12rem)]">
+                    <Form {...form}>
+                        <form id="new-transaction-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 
-                        <FormField
-                            control={form.control}
-                            name="type"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Tipo</FormLabel>
-                                    <Select onValueChange={(val) => {
-                                        field.onChange(val);
-                                        if (val === "INCOME") form.setValue("category", "CAPITAL");
-                                        else form.setValue("category", "OPERATING_EXPENSE");
-                                    }} defaultValue={field.value}>
+                            <FormField
+                                control={form.control}
+                                name="type"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Tipo</FormLabel>
+                                        <Select onValueChange={(val) => {
+                                            field.onChange(val);
+                                            if (val === "INCOME") form.setValue("category", "CAPITAL");
+                                            else form.setValue("category", "OPERATING_EXPENSE");
+                                        }} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Seleccione el tipo" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="INCOME">Ingreso</SelectItem>
+                                                <SelectItem value="EXPENSE">Egreso</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="category"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Categoría</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Seleccione una categoría" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {type === "INCOME" ? (
+                                                    <>
+                                                        <SelectItem value="CAPITAL">Aporte de Capital</SelectItem>
+                                                        <SelectItem value="SALE">Ventas (Manual)</SelectItem>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <SelectItem value="OPERATING_EXPENSE">Gasto Operativo (Renta, Luz, etc)</SelectItem>
+                                                        <SelectItem value="TAX">Impuestos</SelectItem>
+                                                        <SelectItem value="PURCHASE">Compras (Manual)</SelectItem>
+                                                        <SelectItem value="PAYROLL">Nómina (Manual)</SelectItem>
+                                                    </>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="accountId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Cuenta / Caja</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Seleccione una cuenta" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {accounts.map((acc) => (
+                                                    <SelectItem key={acc.id} value={acc.id}>
+                                                        {acc.name} ({acc.currency})
+                                                    </SelectItem>
+                                                ))}
+                                                {accounts.length === 0 && (
+                                                    <SelectItem value="empty" disabled>
+                                                        No hay cuentas disponibles
+                                                    </SelectItem>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="amount"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Monto</FormLabel>
                                         <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Seleccione el tipo" />
-                                            </SelectTrigger>
+                                            <Input type="number" step="0.01" {...field} />
                                         </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="INCOME">Ingreso</SelectItem>
-                                            <SelectItem value="EXPENSE">Egreso</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-                        <FormField
-                            control={form.control}
-                            name="category"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Categoría</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
+                            <FormField
+                                control={form.control}
+                                name="description"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Descripción</FormLabel>
                                         <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Seleccione una categoría" />
-                                            </SelectTrigger>
+                                            <Textarea placeholder="Motivo de la transacción" {...field} />
                                         </FormControl>
-                                        <SelectContent>
-                                            {type === "INCOME" ? (
-                                                <>
-                                                    <SelectItem value="CAPITAL">Aporte de Capital</SelectItem>
-                                                    <SelectItem value="SALE">Ventas (Manual)</SelectItem>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <SelectItem value="OPERATING_EXPENSE">Gasto Operativo (Renta, Luz, etc)</SelectItem>
-                                                    <SelectItem value="TAX">Impuestos</SelectItem>
-                                                    <SelectItem value="PURCHASE">Compras (Manual)</SelectItem>
-                                                    <SelectItem value="PAYROLL">Nómina (Manual)</SelectItem>
-                                                </>
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </form>
+                    </Form>
+                </div>
 
-                        <FormField
-                            control={form.control}
-                            name="accountId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Cuenta / Caja</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Seleccione una cuenta" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {accounts.map((acc) => (
-                                                <SelectItem key={acc.id} value={acc.id}>
-                                                    {acc.name} ({acc.currency})
-                                                </SelectItem>
-                                            ))}
-                                            {accounts.length === 0 && (
-                                                <SelectItem value="empty" disabled>
-                                                    No hay cuentas disponibles
-                                                </SelectItem>
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <FormField
-                            control={form.control}
-                            name="amount"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Monto</FormLabel>
-                                    <FormControl>
-                                        <Input type="number" step="0.01" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <FormField
-                            control={form.control}
-                            name="description"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Descripción</FormLabel>
-                                    <FormControl>
-                                        <Textarea placeholder="Motivo de la transacción" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <Button type="submit" disabled={isPending} className="w-full">
-                            {isPending ? "Registrando..." : "Confirmar Transacción"}
+                <div className="sticky bottom-0 border-t bg-background pt-4 pb-2 px-1 flex shrink-0 items-center justify-end gap-2 mt-auto">
+                    <SheetClose asChild>
+                        <Button type="button" variant="outline" disabled={isPending}>
+                            Cancelar
                         </Button>
-                    </form>
-                </Form>
+                    </SheetClose>
+                    <Button type="submit" form="new-transaction-form" disabled={isPending}>
+                        {isPending ? "Registrando..." : "Confirmar Transacción"}
+                    </Button>
+                </div>
             </SheetContent>
         </Sheet>
     )

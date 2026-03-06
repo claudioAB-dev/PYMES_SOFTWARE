@@ -110,32 +110,34 @@ export default async function TreasuryPage() {
                         {transactions.length === 0 ? (
                             <p className="text-muted-foreground text-center py-8">No hay transacciones registradas este mes.</p>
                         ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="pl-6">Fecha</TableHead>
-                                        <TableHead>Descripción / Ref</TableHead>
-                                        <TableHead>Cuenta</TableHead>
-                                        <TableHead>Categoría</TableHead>
-                                        <TableHead className="text-right pr-6">Monto</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {transactions.slice(0, 10).map((t) => (
-                                        <TableRow key={t.id}>
-                                            <TableCell className="pl-6">{format(new Date(t.date), "dd/MM/yyyy HH:mm")}</TableCell>
-                                            <TableCell className="max-w-[200px] truncate">{t.description}</TableCell>
-                                            <TableCell>{t.account.name}</TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline">{getCategoryLabel(t.category)}</Badge>
-                                            </TableCell>
-                                            <TableCell className={`text-right font-bold pr-6 ${t.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
-                                                {t.type === 'INCOME' ? '+' : '-'}{formatCurrency(Number(t.amount))}
-                                            </TableCell>
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="pl-6">Fecha</TableHead>
+                                            <TableHead>Descripción / Ref</TableHead>
+                                            <TableHead>Cuenta</TableHead>
+                                            <TableHead>Categoría</TableHead>
+                                            <TableHead className="text-right pr-6">Monto</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {transactions.slice(0, 10).map((t) => (
+                                            <TableRow key={t.id}>
+                                                <TableCell className="pl-6">{format(new Date(t.date), "dd/MM/yyyy HH:mm")}</TableCell>
+                                                <TableCell className="max-w-[200px] truncate">{t.description}</TableCell>
+                                                <TableCell>{t.account.name}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline">{getCategoryLabel(t.category)}</Badge>
+                                                </TableCell>
+                                                <TableCell className={`text-right font-bold pr-6 ${t.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {t.type === 'INCOME' ? '+' : '-'}{formatCurrency(Number(t.amount))}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         )}
                     </CardContent>
                 </Card>

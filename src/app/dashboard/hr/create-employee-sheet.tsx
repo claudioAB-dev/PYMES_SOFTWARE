@@ -17,6 +17,7 @@ import {
     SheetTitle,
     SheetTrigger,
     SheetFooter,
+    SheetClose,
 } from "@/components/ui/sheet";
 import {
     Form,
@@ -75,22 +76,22 @@ export function CreateEmployeeSheet() {
                     Nuevo Empleado
                 </Button>
             </SheetTrigger>
-            <SheetContent className="overflow-y-auto sm:max-w-md">
+            <SheetContent className="sm:max-w-xl flex flex-col h-full w-full">
                 <SheetHeader>
                     <SheetTitle>Registrar Empleado</SheetTitle>
                     <SheetDescription>
                         Ingrese los datos del nuevo empleado en la organización.
                     </SheetDescription>
                 </SheetHeader>
-                <div className="py-4">
+                <div className="flex-1 overflow-y-auto px-1 py-4 max-h-[calc(100vh-12rem)]">
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                            <div className="flex gap-4">
+                        <form id="create-employee-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
                                     name="firstName"
                                     render={({ field }) => (
-                                        <FormItem className="flex-1">
+                                        <FormItem>
                                             <FormLabel>Nombre *</FormLabel>
                                             <FormControl>
                                                 <Input placeholder="Ej. Juan" {...field} />
@@ -103,7 +104,7 @@ export function CreateEmployeeSheet() {
                                     control={form.control}
                                     name="lastName"
                                     render={({ field }) => (
-                                        <FormItem className="flex-1">
+                                        <FormItem>
                                             <FormLabel>Apellidos *</FormLabel>
                                             <FormControl>
                                                 <Input placeholder="Ej. Pérez" {...field} />
@@ -112,42 +113,40 @@ export function CreateEmployeeSheet() {
                                         </FormItem>
                                     )}
                                 />
-                            </div>
 
-                            <FormField
-                                control={form.control}
-                                name="taxId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>RFC (Opcional)</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Opcional" {...field} value={field.value || ""} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                <FormField
+                                    control={form.control}
+                                    name="taxId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>RFC (Opcional)</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Opcional" {...field} value={field.value || ""} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            <FormField
-                                control={form.control}
-                                name="socialSecurityNumber"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>NSS (Opcional)</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Opcional" {...field} value={field.value || ""} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                <FormField
+                                    control={form.control}
+                                    name="socialSecurityNumber"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>NSS (Opcional)</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Opcional" {...field} value={field.value || ""} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            <div className="flex gap-4">
                                 <FormField
                                     control={form.control}
                                     name="baseSalary"
                                     render={({ field }) => (
-                                        <FormItem className="flex-1">
+                                        <FormItem>
                                             <FormLabel>Salario Bruto Base *</FormLabel>
                                             <FormControl>
                                                 <Input
@@ -167,7 +166,7 @@ export function CreateEmployeeSheet() {
                                     control={form.control}
                                     name="paymentPeriod"
                                     render={({ field }) => (
-                                        <FormItem className="flex-1">
+                                        <FormItem>
                                             <FormLabel>Periodo de Pago *</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
@@ -186,14 +185,19 @@ export function CreateEmployeeSheet() {
                                     )}
                                 />
                             </div>
-
-                            <SheetFooter className="mt-6">
-                                <Button type="submit" disabled={isPending}>
-                                    {isPending ? "Guardando..." : "Guardar Empleado"}
-                                </Button>
-                            </SheetFooter>
                         </form>
                     </Form>
+                </div>
+
+                <div className="sticky bottom-0 border-t bg-background pt-4 pb-2 px-1 flex shrink-0 items-center justify-end gap-2">
+                    <SheetClose asChild>
+                        <Button type="button" variant="outline" disabled={isPending}>
+                            Cancelar
+                        </Button>
+                    </SheetClose>
+                    <Button type="submit" form="create-employee-form" disabled={isPending}>
+                        {isPending ? "Guardando..." : "Guardar Empleado"}
+                    </Button>
                 </div>
             </SheetContent>
         </Sheet>
