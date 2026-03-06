@@ -1,14 +1,13 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useTransition } from "react"
 import { toast } from "sonner"
 import { uploadCSD } from "./actions"
-import { Loader2, ShieldCheck } from "lucide-react"
+import { Loader2, ShieldCheck, Lock, AlertTriangle, BadgeCheck } from "lucide-react"
 
 export function TaxesTab({ organizationId }: { organizationId: string }) {
     const [isPending, startTransition] = useTransition()
@@ -41,15 +40,52 @@ export function TaxesTab({ organizationId }: { organizationId: string }) {
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-                <Alert>
-                    <ShieldCheck className="h-4 w-4" />
-                    <AlertTitle>Protege tu Identidad Fiscal</AlertTitle>
-                    <AlertDescription>
-                        Para emitir facturas, Axioma solo requiere tu <strong>Certificado de Sello Digital (CSD)</strong>.
-                        Aunque los archivos se ven iguales, por favor asegúrate de <strong>NO subir tu e.firma (FIEL)</strong>.
-                        Tus credenciales del CSD serán cifradas con grado militar (<strong>AES-256</strong>) antes de almacenarse.
-                    </AlertDescription>
-                </Alert>
+
+                {/* Security Notice - Premium Design */}
+                <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 dark:border-blue-900/50 dark:from-blue-950/40 dark:to-indigo-950/40">
+                    {/* Header row */}
+                    <div className="flex items-start gap-3 mb-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 shadow-sm shadow-blue-200 dark:shadow-blue-900">
+                            <ShieldCheck className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                            <p className="font-semibold text-blue-900 dark:text-blue-100 text-sm">
+                                Protege tu Identidad Fiscal
+                            </p>
+                            <p className="text-xs text-blue-700/80 dark:text-blue-300/80 mt-0.5 leading-relaxed">
+                                Para emitir facturas, Axioma solo requiere tu{" "}
+                                <strong className="text-blue-900 dark:text-blue-100">
+                                    Certificado de Sello Digital (CSD)
+                                </strong>
+                                . Tus credenciales se cifran antes de almacenarse y nunca se exponen.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Security badges */}
+                    <div className="flex flex-wrap gap-2 mb-3">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
+                            <Lock className="h-3 w-3" />
+                            Cifrado AES-256
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
+                            <BadgeCheck className="h-3 w-3" />
+                            Grado militar
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
+                            <ShieldCheck className="h-3 w-3" />
+                            Solo CSD, nunca FIEL
+                        </span>
+                    </div>
+
+                    {/* Warning row */}
+                    <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800/50 dark:bg-amber-950/40">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <p className="text-xs text-amber-800 dark:text-amber-300 leading-snug">
+                            Asegúrate de <strong>NO subir tu e.firma (FIEL)</strong>. Aunque los archivos se ven iguales, son diferentes certificados.
+                        </p>
+                    </div>
+                </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
