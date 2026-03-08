@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD COLUMN "expected_delivery_date" timestamp DEFAULT now() NOT NULL;

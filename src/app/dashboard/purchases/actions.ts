@@ -104,6 +104,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
                 totalTaxAmount: totalTaxAmount.toFixed(2),
                 totalRetentionAmount: '0.00',
                 totalAmount: totalAmount.toFixed(2),
+                expectedDeliveryDate: validatedFields.data.expectedDeliveryDate,
             }).returning({ id: orders.id });
 
             // 2. Insert Order Items & Totals & Add Stock

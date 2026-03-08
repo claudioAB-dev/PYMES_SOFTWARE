@@ -11,6 +11,10 @@ export const createPurchaseOrderSchema = z.object({
     entityId: z.string().uuid("Proveedor requerido"),
     status: z.enum(orderStatusEnum.enumValues).default('DRAFT'),
     items: z.array(purchaseOrderItemSchema).min(1, "Debe agregar al menos un producto"),
+    expectedDeliveryDate: z.coerce.date({
+        required_error: "La fecha estimada de entrega es obligatoria",
+        invalid_type_error: "Fecha inválida",
+    }),
 });
 
 export type CreatePurchaseOrderInput = z.infer<typeof createPurchaseOrderSchema>;

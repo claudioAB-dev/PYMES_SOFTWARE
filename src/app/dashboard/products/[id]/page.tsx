@@ -88,96 +88,96 @@ export default async function ProductDetailsPage(props: { params: Promise<{ id: 
                 )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-card shadow-sm border rounded-lg p-6">
-                    <p className="text-sm text-muted-foreground font-medium mb-1">Stock Actual</p>
-                    <p className="text-4xl font-bold">
-                        {product.type === "PRODUCT" ? product.stock : "N/A"}
-                        <span className="text-lg font-normal text-muted-foreground ml-1">{product.uom}</span>
-                    </p>
-                </div>
-                <div className="bg-card shadow-sm border rounded-lg p-6">
-                    <p className="text-sm text-muted-foreground font-medium mb-1">Precio Unitario</p>
-                    <p className="text-4xl font-bold">{formatCurrency(product.price)}</p>
-                </div>
-            </div>
-
-            {product.type === "PRODUCT" && (
-                <div className="bg-card shadow-sm border rounded-lg overflow-x-auto mt-8">
-                    <div className="p-6 border-b flex justify-between items-center">
-                        <div>
-                            <h3 className="text-lg font-semibold">Kardex (Historial de Movimientos)</h3>
-                            <p className="text-sm text-muted-foreground">Registro inmutable de todas las entradas, salidas y ajustes de este producto.</p>
-                        </div>
-                        <Button variant="outline" size="sm" asChild>
-                            <a href={`/api/reports/kardex/export?productId=${product.id}`} download>
-                                <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" />
-                                Exportar a Excel
-                            </a>
-                        </Button>
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-card shadow-sm border rounded-lg p-6">
+                        <p className="text-sm text-muted-foreground font-medium mb-1">Stock Actual</p>
+                        <p className="text-4xl font-bold">
+                            {product.type === "PRODUCT" ? product.stock : "N/A"}
+                            <span className="text-lg font-normal text-muted-foreground ml-1">{product.uom}</span>
+                        </p>
                     </div>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Fecha</TableHead>
-                                <TableHead>Tipo</TableHead>
-                                <TableHead>Notas / Ref</TableHead>
-                                <TableHead className="text-right">Movimiento</TableHead>
-                                <TableHead className="text-right">Stock Anterior</TableHead>
-                                <TableHead className="text-right">Stock Resultante</TableHead>
-                                <TableHead>Usuario</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {movements.length > 0 ? (
-                                movements.map((mov) => {
-                                    // Calculate if it was generally an addition or subtraction based on stock difference or type
-                                    // For visual indicator
-                                    const diff = Number(mov.newStock) - Number(mov.previousStock);
-                                    const isPositive = diff > 0;
-                                    const isNegative = diff < 0;
-
-                                    return (
-                                        <TableRow key={mov.id}>
-                                            <TableCell className="whitespace-nowrap">
-                                                {format(new Date(mov.createdAt), 'dd/MM/yyyy HH:mm')}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline">
-                                                    {typeLabels[mov.type] || mov.type}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="max-w-[200px] truncate text-muted-foreground">
-                                                {mov.notes || mov.referenceId || '-'}
-                                            </TableCell>
-                                            <TableCell className="text-right font-medium">
-                                                <span className={isPositive ? "text-emerald-600" : isNegative ? "text-red-600" : ""}>
-                                                    {isPositive ? "+" : ""}{diff}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-right text-muted-foreground">
-                                                {mov.previousStock}
-                                            </TableCell>
-                                            <TableCell className="text-right font-bold">
-                                                {mov.newStock}
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground text-sm">
-                                                {mov.user?.fullName || mov.user?.email || 'Sistema'}
-                                            </TableCell>
-                                        </TableRow>
-                                    )
-                                })
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                                        No hay movimientos registrados para este producto.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                    <div className="bg-card shadow-sm border rounded-lg p-6">
+                        <p className="text-sm text-muted-foreground font-medium mb-1">Precio Unitario</p>
+                        <p className="text-4xl font-bold">{formatCurrency(product.price)}</p>
+                    </div>
                 </div>
-            )}
+
+                {product.type === "PRODUCT" && (
+                    <div className="bg-card shadow-sm border rounded-lg overflow-x-auto mt-8">
+                        <div className="p-6 border-b flex justify-between items-center">
+                            <div>
+                                <h3 className="text-lg font-semibold">Kardex (Historial de Movimientos)</h3>
+                                <p className="text-sm text-muted-foreground">Registro inmutable de todas las entradas, salidas y ajustes de este producto.</p>
+                            </div>
+                            <Button variant="outline" size="sm" asChild>
+                                <a href={`/api/reports/kardex/export?productId=${product.id}`} download>
+                                    <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" />
+                                    Exportar a Excel
+                                </a>
+                            </Button>
+                        </div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Fecha</TableHead>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead>Notas / Ref</TableHead>
+                                    <TableHead className="text-right">Movimiento</TableHead>
+                                    <TableHead className="text-right">Stock Anterior</TableHead>
+                                    <TableHead className="text-right">Stock Resultante</TableHead>
+                                    <TableHead>Usuario</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {movements.length > 0 ? (
+                                    movements.map((mov) => {
+                                        const diff = Number(mov.newStock) - Number(mov.previousStock);
+                                        const isPositive = diff > 0;
+                                        const isNegative = diff < 0;
+
+                                        return (
+                                            <TableRow key={mov.id}>
+                                                <TableCell className="whitespace-nowrap">
+                                                    {format(new Date(mov.createdAt), 'dd/MM/yyyy HH:mm')}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline">
+                                                        {typeLabels[mov.type] || mov.type}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="max-w-[200px] truncate text-muted-foreground">
+                                                    {mov.notes || mov.referenceId || '-'}
+                                                </TableCell>
+                                                <TableCell className="text-right font-medium">
+                                                    <span className={isPositive ? "text-emerald-600" : isNegative ? "text-red-600" : ""}>
+                                                        {isPositive ? "+" : ""}{diff}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="text-right text-muted-foreground">
+                                                    {mov.previousStock}
+                                                </TableCell>
+                                                <TableCell className="text-right font-bold">
+                                                    {mov.newStock}
+                                                </TableCell>
+                                                <TableCell className="text-muted-foreground text-sm">
+                                                    {mov.user?.fullName || mov.user?.email || 'Sistema'}
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                                            No hay movimientos registrados para este producto.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

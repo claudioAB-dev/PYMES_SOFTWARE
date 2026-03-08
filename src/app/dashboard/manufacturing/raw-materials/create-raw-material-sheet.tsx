@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { productSchema, ProductInput } from "@/lib/validators/products";
-import { createProduct } from "./actions";
+import { createRawMaterial } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -26,7 +26,6 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Check, ChevronsUpDown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -134,7 +133,7 @@ function AsyncCombobox({
     );
 }
 
-export function CreateProductSheet() {
+export function CreateRawMaterialSheet() {
     const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
 
@@ -143,28 +142,26 @@ export function CreateProductSheet() {
         defaultValues: {
             name: "",
             sku: "",
-            price: "",
+            price: "0", // Defaulting to 0 since raw materials usually don't have sell price
             cost: 0,
             priceIncludesVat: false,
             stock: 0,
-            type: "PRODUCT",
-            itemType: "finished_good",
+            type: "PRODUCT", // Always product
+            itemType: "raw_material",
             esObjetoImpuesto: "02",
         },
     });
 
-    const productType = form.watch("type");
-
     function onSubmit(data: ProductInput) {
         startTransition(async () => {
-            const result = await createProduct(data);
+            const result = await createRawMaterial({ ...data, itemType: "raw_material" });
 
             if (result.error) {
                 toast.error(result.error);
             } else {
                 setOpen(false);
                 form.reset();
-                toast.success("Producto creado exitosamente");
+                toast.success("Materia prima creada exitosamente");
             }
         });
     }
@@ -172,57 +169,20 @@ export function CreateProductSheet() {
     return (
         <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-                <Button>Nuevo Producto</Button>
+                <Button>Nueva Materia Prima</Button>
             </SheetTrigger>
             <SheetContent className="sm:max-w-xl flex flex-col h-full w-full">
                 <SheetHeader>
-                    <SheetTitle>Crear Producto</SheetTitle>
+                    <SheetTitle>Crear Materia Prima</SheetTitle>
                     <SheetDescription>
-                        Agrega un nuevo producto o servicio a tu inventario.
+                        Agrega un nuevo insumo a tu catálogo de manufactura.
                     </SheetDescription>
                 </SheetHeader>
                 <div className="flex-1 overflow-y-auto px-1 py-4 max-h-[calc(100vh-12rem)]">
                     <Form {...form}>
-                        <form id="create-product-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <form id="create-rm-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="md:col-span-2">
-                                    <FormField
-                                        control={form.control}
-                                        name="type"
-                                        render={({ field }) => (
-                                            <FormItem className="space-y-3">
-                                                <FormLabel>Tipo</FormLabel>
-                                                <FormControl>
-                                                    <RadioGroup
-                                                        onValueChange={field.onChange}
-                                                        defaultValue={field.value}
-                                                        className="flex flex-col space-y-1"
-                                                    >
-                                                        <FormItem className="flex items-center space-x-3 space-y-0">
-                                                            <FormControl>
-                                                                <RadioGroupItem value="PRODUCT" />
-                                                            </FormControl>
-                                                            <FormLabel className="font-normal">
-                                                                Producto
-                                                            </FormLabel>
-                                                        </FormItem>
-                                                        <FormItem className="flex items-center space-x-3 space-y-0">
-                                                            <FormControl>
-                                                                <RadioGroupItem value="SERVICE" />
-                                                            </FormControl>
-                                                            <FormLabel className="font-normal">
-                                                                Servicio
-                                                            </FormLabel>
-                                                        </FormItem>
-                                                    </RadioGroup>
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-
                                 <div className="md:col-span-2">
                                     <FormField
                                         control={form.control}
@@ -231,7 +191,7 @@ export function CreateProductSheet() {
                                             <FormItem>
                                                 <FormLabel>Nombre *</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Ej. Laptop HP" {...field} />
+                                                    <Input placeholder="Ej. Madera de Pino" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -246,50 +206,29 @@ export function CreateProductSheet() {
                                         <FormItem>
                                             <FormLabel>SKU</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="OPCIONAL-001" {...field} value={field.value || ""} />
+                                                <Input placeholder="RM-001" {...field} value={field.value || ""} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
 
-                                {productType === "PRODUCT" && (
-                                    <FormField
-                                        control={form.control}
-                                        name="stock"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Stock Inicial</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="0"
-                                                        {...field}
-                                                        value={field.value ?? ""}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value === "" ? undefined : Number(e.target.value);
-                                                            field.onChange(val);
-                                                        }}
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                )}
-
                                 <FormField
                                     control={form.control}
-                                    name="price"
+                                    name="stock"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Precio Venta *</FormLabel>
+                                            <FormLabel>Stock Inicial</FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="number"
-                                                    step="0.01"
-                                                    placeholder="0.00"
+                                                    placeholder="0"
                                                     {...field}
+                                                    value={field.value ?? ""}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value === "" ? undefined : Number(e.target.value);
+                                                        field.onChange(val);
+                                                    }}
                                                 />
                                             </FormControl>
                                             <FormMessage />
@@ -302,7 +241,7 @@ export function CreateProductSheet() {
                                     name="cost"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Costo *</FormLabel>
+                                            <FormLabel>Costo Unitario *</FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="number"
@@ -321,6 +260,25 @@ export function CreateProductSheet() {
                                     )}
                                 />
 
+                                <FormField
+                                    control={form.control}
+                                    name="price"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Precio de Venta (Opcional)</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="0.00"
+                                                    {...field}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
                                 <div className="md:col-span-2">
                                     <FormField
                                         control={form.control}
@@ -329,7 +287,7 @@ export function CreateProductSheet() {
                                             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                                                 <div className="space-y-0.5">
                                                     <FormLabel>
-                                                        ¿El precio incluye IVA (16%)?
+                                                        ¿El costo/precio incluye IVA (16%)?
                                                     </FormLabel>
                                                 </div>
                                                 <FormControl>
@@ -348,7 +306,7 @@ export function CreateProductSheet() {
                                 <div className="space-y-1">
                                     <h3 className="text-sm font-medium leading-none">Datos Fiscales (CFDI 4.0)</h3>
                                     <p className="text-[0.8rem] text-muted-foreground">
-                                        Requerido para la facturación electrónica.
+                                        Requerido para operaciones de compra.
                                     </p>
                                 </div>
                                 <Separator />
@@ -434,9 +392,9 @@ export function CreateProductSheet() {
                             Cancelar
                         </Button>
                     </SheetClose>
-                    <Button type="submit" form="create-product-form" disabled={isPending}>
+                    <Button type="submit" form="create-rm-form" disabled={isPending}>
                         {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {isPending ? "Guardando..." : "Guardar Producto"}
+                        {isPending ? "Guardando..." : "Guardar Materia Prima"}
                     </Button>
                 </div>
             </SheetContent>

@@ -18,6 +18,8 @@ export const transactionTypeEnum = pgEnum('transaction_type', ['INCOME', 'EXPENS
 export const transactionCategoryEnum = pgEnum('transaction_category', ['SALE', 'PURCHASE', 'PAYROLL', 'OPERATING_EXPENSE', 'TAX', 'CAPITAL']);
 export const satRequestStatusEnum = pgEnum('sat_request_status', ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED']);
 export const cfdiTypeEnum = pgEnum('cfdi_type', ['I', 'E', 'T', 'N', 'P']);
+export const itemTypeEnum = pgEnum('item_type', ['finished_good', 'raw_material', 'sub_assembly', 'service']);
+export const productionStatusEnum = pgEnum('production_status', ['draft', 'in_progress', 'completed', 'cancelled']);
 
 // --- TABLES ---
 
@@ -113,6 +115,7 @@ export const products = pgTable("products", {
     name: text("name").notNull(),
     uom: text("uom"),
     type: productTypeEnum("type").default('PRODUCT').notNull(),
+    itemType: itemTypeEnum("item_type").default('finished_good').notNull(),
     price: decimal("price", { precision: 12, scale: 2 }).default('0').notNull(),
     stock: decimal("stock", { precision: 12, scale: 2 }).default('0').notNull(), // Using decimal for stock to allow fractional units if needed, though zod uses int validation I'll stick to decimal for flexibility or integer if strictly requested. User said "stock: z.number().int()". I'll use integer in DB for strictness if requested, but decimal is safer for general ERPs. User requirement: "stock: z.number().int()". I'll use integer in DB.
     archived: boolean("archived").default(false).notNull(),
@@ -150,6 +153,19 @@ export const priceListItems = pgTable("price_list_items", {
     };
 });
 
+// 5b. Bill of Materials (BOM)
+export const bomLines = pgTable("bom_lines", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    parentProductId: uuid("parent_product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
+    componentProductId: uuid("component_product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
+    quantity: decimal("quantity", { precision: 12, scale: 2 }).notNull(),
+    scrapFactor: decimal("scrap_factor", { precision: 12, scale: 2 }).default('0').notNull(),
+    uom: text("uom").notNull(),
+    unitCost: decimal("unit_cost", { precision: 12, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // 6. Orders (Headers)
 export const orders = pgTable("orders", {
     id: uuid("id").defaultRandom().primaryKey(),
@@ -163,6 +179,7 @@ export const orders = pgTable("orders", {
     totalRetentionAmount: decimal("total_retention_amount", { precision: 12, scale: 2 }).default('0'),
     totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).default('0'),
     isInvoiced: boolean("is_invoiced").default(false),
+    expectedDeliveryDate: timestamp("expected_delivery_date").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -326,6 +343,32 @@ export const satCredentials = pgTable("sat_credentials", {
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 18. Production Orders (Manufactura)
+export const productionOrders = pgTable("production_orders", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    productId: uuid("product_id").references(() => products.id).notNull(),
+    status: productionStatusEnum("status").default('draft').notNull(),
+    targetQuantity: decimal("target_quantity", { precision: 12, scale: 2 }).notNull(),
+    startDate: timestamp("start_date").notNull(),
+    completionDate: timestamp("completion_date"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 18a. Production Order Materials (Consumo Manufactura)
+export const productionOrderMaterials = pgTable("production_order_materials", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    productionOrderId: uuid("production_order_id").references(() => productionOrders.id, { onDelete: 'cascade' }).notNull(),
+    materialId: uuid("material_id").references(() => products.id).notNull(),
+    plannedQuantity: decimal("planned_quantity", { precision: 12, scale: 2 }).notNull(),
+    actualQuantity: decimal("actual_quantity", { precision: 12, scale: 2 }).notNull(),
+    unitCost: decimal("unit_cost", { precision: 12, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // --- RELATIONS ---
 export const productsRelations = relations(products, ({ one, many }) => ({
     organization: one(organizations, { fields: [products.organizationId], references: [organizations.id] }),
@@ -334,6 +377,15 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     orderItems: many(orderItems),
     inventoryMovements: many(inventoryMovements),
     priceListItems: many(priceListItems),
+    bomLines: many(bomLines, { relationName: "parentProduct" }),
+    bomComponents: many(bomLines, { relationName: "componentProduct" }),
+    productionOrders: many(productionOrders),
+    productionOrderMaterials: many(productionOrderMaterials),
+}));
+
+export const bomLinesRelations = relations(bomLines, ({ one }) => ({
+    parentProduct: one(products, { fields: [bomLines.parentProductId], references: [products.id], relationName: "parentProduct" }),
+    componentProduct: one(products, { fields: [bomLines.componentProductId], references: [products.id], relationName: "componentProduct" }),
 }));
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -360,6 +412,7 @@ export const organizationsRelations = relations(organizations, ({ one, many }) =
     satCredential: one(satCredentials, { fields: [organizations.id], references: [satCredentials.organizationId] }),
     priceLists: many(priceLists),
     priceListItems: many(priceListItems),
+    productionOrders: many(productionOrders),
 }));
 
 export const membershipsRelations = relations(memberships, ({ one }) => ({
@@ -446,4 +499,15 @@ export const priceListItemsRelations = relations(priceListItems, ({ one }) => ({
 export const entitiesRelations = relations(entities, ({ one }) => ({
     organization: one(organizations, { fields: [entities.organizationId], references: [organizations.id] }),
     priceList: one(priceLists, { fields: [entities.priceListId], references: [priceLists.id] }),
+}));
+
+export const productionOrdersRelations = relations(productionOrders, ({ one, many }) => ({
+    organization: one(organizations, { fields: [productionOrders.organizationId], references: [organizations.id] }),
+    product: one(products, { fields: [productionOrders.productId], references: [products.id] }),
+    materials: many(productionOrderMaterials),
+}));
+
+export const productionOrderMaterialsRelations = relations(productionOrderMaterials, ({ one }) => ({
+    productionOrder: one(productionOrders, { fields: [productionOrderMaterials.productionOrderId], references: [productionOrders.id] }),
+    material: one(products, { fields: [productionOrderMaterials.materialId], references: [products.id] }),
 }));

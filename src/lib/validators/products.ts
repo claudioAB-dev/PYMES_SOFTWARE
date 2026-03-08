@@ -6,6 +6,9 @@ export const productSchema = z.object({
     type: z.enum(["PRODUCT", "SERVICE"], {
         required_error: "Selecciona un tipo de producto",
     }),
+    itemType: z.enum(["finished_good", "raw_material", "sub_assembly", "service"], {
+        required_error: "Selecciona un tipo de ítem de manufactura",
+    }),
     price: z
         .string()
         .regex(/^\d+(\.\d{1,2})?$/, "Ingresa un monto válido (ej. 100.50)"),

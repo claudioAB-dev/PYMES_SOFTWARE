@@ -152,6 +152,7 @@ export async function createOrder(input: CreateOrderInput) {
                 totalTaxAmount: totalTaxAmount.toFixed(2),
                 totalRetentionAmount: totalRetentionAmount.toFixed(2),
                 totalAmount: totalAmount.toFixed(2),
+                expectedDeliveryDate: new Date(), // Requerido por schema, defaulting to now for sales for now
             }).returning({ id: orders.id });
 
             // 3. Insert Order Items & Deduct Stock

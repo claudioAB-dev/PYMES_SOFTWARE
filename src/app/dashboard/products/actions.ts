@@ -41,7 +41,8 @@ export async function getProducts() {
         const data = await db.query.products.findMany({
             where: and(
                 eq(products.organizationId, organizationId),
-                eq(products.archived, false)
+                eq(products.archived, false),
+                eq(products.itemType, 'finished_good')
             ),
             orderBy: [desc(products.createdAt)],
         });

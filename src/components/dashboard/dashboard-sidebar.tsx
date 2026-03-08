@@ -11,8 +11,12 @@ import {
     Package,
     Users,
     Landmark,
+    ClipboardList,
+    Factory,
+    CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface DashboardSidebarProps {
     className?: string;
@@ -22,7 +26,7 @@ interface DashboardSidebarProps {
 export function DashboardSidebar({ className, userPermissions }: DashboardSidebarProps) {
     const pathname = usePathname();
 
-    const routes = [
+    const coreRoutes = [
         {
             label: "Dashboard",
             icon: LayoutDashboard,
@@ -88,42 +92,120 @@ export function DashboardSidebar({ className, userPermissions }: DashboardSideba
         },
     ];
 
-    const filteredRoutes = routes.filter(
+    const manufacturingRoutes = [
+        {
+            label: "Recetas (BOM)",
+            icon: ClipboardList,
+            href: "/dashboard/manufacturing/bom",
+            color: "text-amber-500",
+            permissionId: "view:manufacturing",
+        },
+        {
+            label: "Órdenes de Producción",
+            icon: Factory,
+            href: "/dashboard/manufacturing/orders",
+            color: "text-amber-600",
+            permissionId: "view:manufacturing",
+        },
+        {
+            label: "Materias Primas e Insumos",
+            icon: Package,
+            href: "/dashboard/manufacturing/raw-materials",
+            color: "text-amber-700",
+            permissionId: "view:manufacturing",
+        },
+        {
+            label: "Planificador",
+            icon: CalendarDays,
+            href: "/dashboard/manufacturing/planner",
+            color: "text-amber-400",
+            permissionId: "view:manufacturing",
+        },
+    ];
+
+    const filteredCoreRoutes = coreRoutes.filter(
+        route => userPermissions.includes('*') || userPermissions.includes(route.permissionId)
+    );
+
+    const filteredManufacturingRoutes = manufacturingRoutes.filter(
         route => userPermissions.includes('*') || userPermissions.includes(route.permissionId)
     );
 
     return (
-        <div className={cn("pb-12 space-y-4 py-4 flex flex-col h-full bg-slate-900 text-white", className)}>
-            <div className="px-3 py-2 flex-1">
-                <Link href="/dashboard" className="flex items-center pl-3 mb-14">
+        <div className={cn("pb-12 space-y-4 py-4 flex flex-col h-full bg-slate-900 text-white", className)} suppressHydrationWarning>
+            <div className="px-3 py-2 flex-1" suppressHydrationWarning>
+                <Link href="/dashboard" className="flex items-center pl-3 mb-14" suppressHydrationWarning>
                     <h1 className="text-2xl font-bold">
                         Pymes Soft
                     </h1>
                 </Link>
-                <div className="space-y-1">
-                    {filteredRoutes.map((route) => {
-                        const isActive = route.href === "/dashboard"
-                            ? pathname === "/dashboard"
-                            : pathname.startsWith(route.href);
 
-                        return (
-                            <Button
-                                key={route.href}
-                                asChild
-                                variant={isActive ? "secondary" : "ghost"}
-                                className={cn(
-                                    "w-full justify-start cursor-pointer",
-                                    isActive ? "bg-white/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
-                                )}
-                            >
-                                <Link href={route.href}>
-                                    <route.icon className={cn("h-5 w-5 mr-3", route.color)} />
-                                    {route.label}
-                                </Link>
-                            </Button>
-                        );
-                    })}
-                </div>
+                <Tabs defaultValue="core" className="w-full">
+                    <TabsList className="w-full bg-slate-800/50 mb-4 h-11 p-1" suppressHydrationWarning>
+                        <TabsTrigger
+                            value="core"
+                            className="w-full data-[state=active]:bg-slate-700 data-[state=active]:text-white text-zinc-400"
+                        >
+                            Axioma
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="manufactura"
+                            className="w-full data-[state=active]:bg-slate-700 data-[state=active]:text-amber-500 text-zinc-400"
+                        >
+                            Manufactura
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="core" className="space-y-1 mt-0" suppressHydrationWarning>
+                        {filteredCoreRoutes.map((route) => {
+                            const isActive = route.href === "/dashboard"
+                                ? pathname === "/dashboard"
+                                : pathname.startsWith(route.href);
+
+                            return (
+                                <Button
+                                    key={route.href}
+                                    asChild
+                                    variant={isActive ? "secondary" : "ghost"}
+                                    className={cn(
+                                        "w-full justify-start cursor-pointer",
+                                        isActive ? "bg-white/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                                    )}
+                                >
+                                    <Link href={route.href}>
+                                        <route.icon className={cn("h-5 w-5 mr-3", route.color)} />
+                                        {route.label}
+                                    </Link>
+                                </Button>
+                            );
+                        })}
+                    </TabsContent>
+
+                    <TabsContent value="manufactura" className="space-y-1 mt-0">
+                        {filteredManufacturingRoutes.map((route) => {
+                            const isActive = route.href === "/dashboard"
+                                ? pathname === "/dashboard"
+                                : pathname.startsWith(route.href);
+
+                            return (
+                                <Button
+                                    key={route.href}
+                                    asChild
+                                    variant={isActive ? "secondary" : "ghost"}
+                                    className={cn(
+                                        "w-full justify-start cursor-pointer",
+                                        isActive ? "bg-white/10" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                                    )}
+                                >
+                                    <Link href={route.href}>
+                                        <route.icon className={cn("h-5 w-5 mr-3", route.color)} />
+                                        {route.label}
+                                    </Link>
+                                </Button>
+                            );
+                        })}
+                    </TabsContent>
+                </Tabs>
             </div>
         </div>
     );
