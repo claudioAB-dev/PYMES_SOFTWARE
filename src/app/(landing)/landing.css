@@ -1,0 +1,214 @@
+/* ═══════════════════════════════════════════════════════
+   Axioma Landing — Dark Precision Theme
+   Scoped to (landing) route group only.
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Dark palette overrides (shadcn variable names) ── */
+.landing-theme {
+  --background: #0A0F1E;
+  --foreground: #F1F5F9;
+  --card: #111827;
+  --card-foreground: #F1F5F9;
+  --popover: #111827;
+  --popover-foreground: #F1F5F9;
+  --primary: #2563EB;
+  --primary-foreground: #FFFFFF;
+  --secondary: #1E2D45;
+  --secondary-foreground: #F1F5F9;
+  --muted: #1E2D45;
+  --muted-foreground: #64748B;
+  --accent: #38BDF8;
+  --accent-foreground: #0A0F1E;
+  --destructive: #EF4444;
+  --border: #1E2D45;
+  --input: #1E2D45;
+  --ring: #2563EB;
+  --radius: 0.5rem;
+
+  /* Custom tokens */
+  --color-accent: #38BDF8;
+  --color-glow: rgba(37, 99, 235, 0.15);
+  --color-footer-bg: #060B15;
+
+  color-scheme: dark;
+
+  /* Force dark bg/fg directly to override root body white */
+  background-color: #0A0F1E;
+  color: #F1F5F9;
+  min-height: 100vh;
+}
+
+/* Nuclear override: force dark variables on ALL descendants
+   This ensures Tailwind utility classes like bg-background, text-foreground
+   resolve to the dark palette instead of the :root light values */
+.landing-theme *,
+.landing-theme *::before,
+.landing-theme *::after {
+  --background: #0A0F1E;
+  --foreground: #F1F5F9;
+  --card: #111827;
+  --card-foreground: #F1F5F9;
+  --primary: #2563EB;
+  --primary-foreground: #FFFFFF;
+  --secondary: #1E2D45;
+  --secondary-foreground: #F1F5F9;
+  --muted: #1E2D45;
+  --muted-foreground: #64748B;
+  --accent: #38BDF8;
+  --accent-foreground: #0A0F1E;
+  --border: #1E2D45;
+  --input: #1E2D45;
+  --ring: #2563EB;
+}
+
+/* ── Typography ── */
+.landing-theme {
+  font-family: var(--font-body), 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+.font-heading {
+  font-family: var(--font-heading), 'DM Serif Display', Georgia, serif;
+}
+
+.font-body {
+  font-family: var(--font-body), 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+/* ── Mesh gradient hero background ── */
+.mesh-gradient {
+  position: relative;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 40%, rgba(37, 99, 235, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 30%, rgba(56, 189, 248, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 70% at 50% 80%, rgba(37, 99, 235, 0.06) 0%, transparent 65%),
+    #0A0F1E;
+}
+
+.mesh-gradient::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Card glow hover ── */
+.card-glow {
+  transition: box-shadow 250ms ease, border-color 250ms ease;
+}
+
+.card-glow:hover {
+  border-color: #2563EB !important;
+  box-shadow: 0 0 0 1px #2563EB, 0 0 20px rgba(37, 99, 235, 0.15);
+}
+
+/* ── 3D Dashboard perspective ── */
+.perspective-dashboard {
+  transform: perspective(1000px) rotateX(8deg) rotateY(-4deg);
+  transition: transform 400ms ease;
+}
+
+.perspective-dashboard:hover {
+  transform: perspective(1000px) rotateX(4deg) rotateY(-2deg);
+}
+
+.dashboard-glow {
+  position: relative;
+}
+
+.dashboard-glow::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  z-index: -1;
+  border-radius: 12px;
+  background: radial-gradient(ellipse at center, rgba(37, 99, 235, 0.25) 0%, transparent 70%);
+  filter: blur(20px);
+}
+
+/* ── CTA hover scale ── */
+.cta-hover {
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.cta-hover:hover {
+  transform: scale(1.02);
+}
+
+/* ── Scroll reveal animation ── */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 400ms ease, transform 400ms ease;
+}
+
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger children */
+.scroll-reveal-stagger>.scroll-reveal-item {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 350ms ease, transform 350ms ease;
+}
+
+.scroll-reveal-stagger.revealed>.scroll-reveal-item {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scroll-reveal-stagger.revealed>.scroll-reveal-item:nth-child(1) {
+  transition-delay: 0ms;
+}
+
+.scroll-reveal-stagger.revealed>.scroll-reveal-item:nth-child(2) {
+  transition-delay: 100ms;
+}
+
+.scroll-reveal-stagger.revealed>.scroll-reveal-item:nth-child(3) {
+  transition-delay: 200ms;
+}
+
+.scroll-reveal-stagger.revealed>.scroll-reveal-item:nth-child(4) {
+  transition-delay: 300ms;
+}
+
+.scroll-reveal-stagger.revealed>.scroll-reveal-item:nth-child(5) {
+  transition-delay: 400ms;
+}
+
+/* ── Footer bg ── */
+.footer-dark {
+  background-color: #060B15;
+}
+
+/* ── Accent text utility ── */
+.text-accent {
+  color: #38BDF8;
+}
+
+/* ── Max border radius enforcement ── */
+.landing-theme .rounded-2xl {
+  border-radius: 8px;
+}
+
+.landing-theme .rounded-3xl {
+  border-radius: 8px;
+}
+
+.landing-theme .rounded-xl {
+  border-radius: 8px;
+}
+
+.landing-theme .rounded-lg {
+  border-radius: 8px;
+}
+
+.landing-theme .rounded-full {
+  border-radius: 9999px;
+}
