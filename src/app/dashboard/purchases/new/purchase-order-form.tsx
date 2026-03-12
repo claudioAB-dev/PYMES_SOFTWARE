@@ -19,6 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 interface Product {
     id: string;
@@ -48,15 +49,17 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
             entityId: "",
             items: [{ productId: "", quantity: 1, price: 0 }],
             status: 'CONFIRMED',
+            requiresCfdi: true,
         },
     });
 
+    const requiresCfdi = form.watch("requiresCfdi") ?? true;
     const items = form.watch("items");
     const subtotal = items?.reduce((sum, item) => {
         return sum + (item.quantity || 0) * (item.price || 0);
     }, 0) || 0;
 
-    const taxRate = 0.16;
+    const taxRate = requiresCfdi ? 0.16 : 0;
     const tax = subtotal * taxRate;
     const total = subtotal + tax;
 
@@ -124,6 +127,26 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
                                                 </PopoverContent>
                                             </Popover>
                                             <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="requiresCfdi"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 md:col-span-2 mt-4">
+                                            <div className="space-y-0.5">
+                                                <FormLabel className="text-base text-foreground">Gasto facturable (Requiere CFDI)</FormLabel>
+                                                <div className="text-sm text-muted-foreground text-balance">
+                                                    Desactiva esto para registrar gastos no deducibles o de flujo interno. El IVA se calculará en $0.
+                                                </div>
+                                            </div>
+                                            <FormControl>
+                                                <Switch
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                />
+                                            </FormControl>
                                         </FormItem>
                                     )}
                                 />

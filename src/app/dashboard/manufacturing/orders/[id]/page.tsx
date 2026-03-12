@@ -43,7 +43,8 @@ export default async function ProductionOrderDetailPage({
                         columns: { name: true, uom: true }
                     }
                 }
-            }
+            },
+            batches: true
         }
     });
 

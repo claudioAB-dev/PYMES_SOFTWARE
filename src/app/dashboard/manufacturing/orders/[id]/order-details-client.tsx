@@ -4,6 +4,8 @@ import { useTransition, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import {
     Form,
@@ -21,12 +23,20 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { completeProductionOrderAction } from "@/app/actions/production-orders";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, CalendarIcon, Package } from "lucide-react";
 import { CancelOrderButton } from "@/components/manufacturing/CancelOrderButton";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 const materialSchema = z.object({
     materialId: z.string(),
@@ -46,6 +56,7 @@ export function OrderDetailsClient({ order }: { order: any }) {
     const isCompleted = order.status === 'completed' || order.status === 'cancelled';
     const [isPending, startTransition] = useTransition();
     const [stockErrors, setStockErrors] = useState<any[] | null>(null);
+    const [expirationDate, setExpirationDate] = useState<Date | undefined>(undefined);
     const router = useRouter();
 
     const form = useForm<FormValues>({
@@ -74,10 +85,14 @@ export function OrderDetailsClient({ order }: { order: any }) {
                 quantity: m.actualQuantity,
             }));
 
-            const result = await completeProductionOrderAction(order.id, quantitiesToSubmit);
+            const result = await completeProductionOrderAction(
+                order.id,
+                quantitiesToSubmit,
+                expirationDate ?? null
+            );
 
             if (result.success) {
-                toast.success("Orden completada con éxito");
+                toast.success(`Orden completada. Lote ${result.batchNumber} generado e ingresado al almacén.`);
                 router.refresh();
             } else {
                 if (result.errorType === 'INSUFFICIENT_STOCK' && result.details) {
@@ -90,8 +105,54 @@ export function OrderDetailsClient({ order }: { order: any }) {
         });
     }
 
+    // Get batch info for completed orders
+    const batch = order.batches?.[0];
+
     return (
         <div className="space-y-6">
+            {/* Traceability Card for completed orders */}
+            {order.status === 'completed' && batch && (
+                <Card className="border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                            <Package className="h-5 w-5" />
+                            Trazabilidad del Lote
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div>
+                                <p className="text-sm text-muted-foreground font-medium mb-1">Número de Lote</p>
+                                <p className="text-sm font-mono font-bold text-green-700 dark:text-green-400">
+                                    {batch.batchNumber}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground font-medium mb-1">Fecha de Manufactura</p>
+                                <p className="text-sm">
+                                    {format(new Date(batch.manufacturingDate), "PPP", { locale: es })}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground font-medium mb-1">Fecha de Caducidad</p>
+                                <p className="text-sm">
+                                    {batch.expirationDate
+                                        ? format(new Date(batch.expirationDate), "PPP", { locale: es })
+                                        : <span className="text-muted-foreground italic">No aplica</span>
+                                    }
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground font-medium mb-1">Cantidad Inicial</p>
+                                <p className="text-sm font-semibold">
+                                    {Number(batch.initialQuantity).toFixed(2)} <span className="text-muted-foreground font-normal">{order.product?.uom}</span>
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             <div className="flex items-center justify-between">
                 <h3 className="text-xl font-semibold">Consumo de Insumos</h3>
                 {!isCompleted && (
@@ -114,6 +175,53 @@ export function OrderDetailsClient({ order }: { order: any }) {
                     </div>
                 )}
             </div>
+
+            {/* Expiration Date Picker - only shown when order is not completed */}
+            {!isCompleted && (
+                <div className="flex items-center gap-4 p-4 border rounded-lg bg-muted/30">
+                    <div className="flex-1">
+                        <p className="text-sm font-medium mb-1">Fecha de Caducidad del Lote</p>
+                        <p className="text-xs text-muted-foreground">Opcional. Importante para productos perecederos.</p>
+                    </div>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className={cn(
+                                    "w-[260px] justify-start text-left font-normal",
+                                    !expirationDate && "text-muted-foreground"
+                                )}
+                                disabled={isPending}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {expirationDate
+                                    ? format(expirationDate, "PPP", { locale: es })
+                                    : "Seleccionar fecha..."
+                                }
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                            <Calendar
+                                mode="single"
+                                selected={expirationDate}
+                                onSelect={setExpirationDate}
+                                disabled={(date) => date < new Date()}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                    {expirationDate && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpirationDate(undefined)}
+                            className="text-muted-foreground"
+                        >
+                            Limpiar
+                        </Button>
+                    )}
+                </div>
+            )}
 
             {stockErrors && stockErrors.length > 0 && (
                 <Alert variant="destructive">

@@ -84,7 +84,7 @@ export default async function PurchasesPage() {
                                             {order.id.slice(0, 8)}
                                         </Link>
                                     </TableCell>
-                                    <TableCell>{order.entity.commercialName}</TableCell>
+                                    <TableCell>{order.entity?.commercialName || 'Sin proveedor'}</TableCell>
                                     <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
                                     <TableCell>
                                         <Badge variant={order.status === 'CONFIRMED' ? 'default' : order.status === 'CANCELLED' ? 'destructive' : 'secondary'}>

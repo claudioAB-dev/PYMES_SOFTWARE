@@ -1,11 +1,18 @@
 import Link from "next/link";
-import { Navbar } from "@/components/landing/Navbar";
+import { ContadoresNavbar } from "./contadores-navbar";
 import { Footer } from "@/components/landing/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
     ArrowRight,
+    ArrowLeft,
     Play,
     CloudLightning,
     Vault,
@@ -13,12 +20,15 @@ import {
     Building2,
     UserPlus,
     Send,
-    Sparkles,
-    ShieldCheck,
-    CheckCircle2,
-    TrendingUp,
     Coins,
+    ShieldCheck,
+    Calculator,
+    Award,
     Handshake,
+    MessageCircleQuestion,
+    CircleDot,
+    Lock,
+    FileCheck,
 } from "lucide-react";
 
 /* -------------------------------------------------------------------------- */
@@ -26,9 +36,9 @@ import {
 /* -------------------------------------------------------------------------- */
 
 export const metadata = {
-    title: "Axioma para Contadores y Despachos | ERP Fiscal Inteligente",
+    title: "Programa de Contadores Aliados | Axioma ERP",
     description:
-        "Centraliza la contabilidad de todas tus PyMEs. Descarga masiva del SAT, bóveda fiscal automática y colaboración sin fricción con tus clientes.",
+        "Únete al Programa de Contadores Aliados de Axioma. Refiere PyMEs, gana comisiones recurrentes y protege tu reputación profesional con el ERP fiscal más preciso de México.",
 };
 
 /* -------------------------------------------------------------------------- */
@@ -78,28 +88,74 @@ const steps = [
     {
         number: "01",
         icon: UserPlus,
-        title: "Creas tu cuenta de despacho",
-        description: "Toma 10 segundos. Sin tarjeta de crédito.",
+        title: "Te unes al programa",
+        description:
+            "Regístrate como Contador Aliado. Toma 10 segundos. Sin tarjeta de crédito.",
         color: "text-sky-500",
         bg: "bg-sky-50 dark:bg-sky-950/30",
     },
     {
         number: "02",
         icon: Send,
-        title: "Envías tu link de invitación",
+        title: "Refieres a tus clientes",
         description:
-            "Comparte un enlace único con cada cliente. Ellos se registran y aparecen en tu portafolio al instante.",
+            "Comparte tu enlace único de Axioma. Cuando tus clientes se registran, quedan vinculados a tu cuenta automáticamente.",
         color: "text-violet-500",
         bg: "bg-violet-50 dark:bg-violet-950/30",
     },
     {
         number: "03",
-        icon: Sparkles,
-        title: "Axioma hace el resto",
+        icon: Coins,
+        title: "Tus clientes operan. Tú cobras.",
         description:
-            "Descarga y clasifica toda la historia fiscal automáticamente. Tú solo revisas los resultados.",
+            "Cada empresa que registres genera una comisión mensual automática. Sin intervención manual. Tu panel muestra en tiempo real cuántas empresas tienes activas y cuánto se acreditará este mes.",
         color: "text-emerald-500",
         bg: "bg-emerald-50 dark:bg-emerald-950/30",
+    },
+];
+
+const COMISION_POR_EMPRESA = 300;
+
+const commissionCards = [
+    {
+        empresas: 2,
+        comision: "$600",
+        label: "Umbral mínimo de activación",
+        highlighted: false,
+    },
+    {
+        empresas: 5,
+        comision: "$1,500",
+        label: "El despacho promedio",
+        highlighted: true,
+    },
+    {
+        empresas: 10,
+        comision: "$3,000",
+        label: "Ingreso pasivo real",
+        highlighted: false,
+    },
+];
+
+const faqs = [
+    {
+        question:
+            "¿Mis clientes necesitan que yo los acompañe en la implementación?",
+        answer: "No. Axioma está listo en menos de 1 día. Tu cliente entra, configura su empresa y puede facturar el mismo día.",
+    },
+    {
+        question: "¿Qué pasa si un cliente cancela su suscripción?",
+        answer: "La comisión de ese cliente se detiene ese mes. No hay penalizaciones para ti.",
+    },
+    {
+        question:
+            "¿Necesito ser usuario de Axioma para recomendar el sistema?",
+        answer: "No es obligatorio, pero recomendamos que abras una cuenta gratuita de despacho para que puedas ver el sistema que le estás recomendando a tus clientes.",
+    },
+    {
+        question:
+            "¿Axioma tiene módulo de manufactura? Algunos de mis clientes fabrican.",
+        answer: "Sí. Axioma Manufactura es el módulo más avanzado del sistema. Incluye BOM dinámica, órdenes de producción transaccionales y calculadora de costo real por lote. Tus clientes manufactureros son los que más se benefician.",
     },
 ];
 
@@ -110,13 +166,13 @@ const steps = [
 export default function ContadoresPage() {
     return (
         <div className="min-h-screen bg-background antialiased">
-            <Navbar />
+            <ContadoresNavbar />
 
             <main>
                 {/* ================================================================ */}
                 {/*  HERO SECTION                                                    */}
                 {/* ================================================================ */}
-                <section className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 pt-16">
+                <section className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 pt-24">
                     {/* Background gradient blobs */}
                     <div className="absolute inset-0 -z-10">
                         <div className="absolute top-0 left-1/4 h-[500px] w-[500px] rounded-full bg-sky-500/6 blur-3xl" />
@@ -131,30 +187,36 @@ export default function ContadoresPage() {
                                 variant="secondary"
                                 className="gap-1.5 px-3 py-1.5 animate-in fade-in slide-in-from-bottom-2 duration-500"
                             >
-                                <ShieldCheck className="h-3 w-3 text-emerald-500" />
-                                <span>Diseñado exclusivamente para contadores</span>
+                                <Handshake className="h-3 w-3 text-amber-500" />
+                                <span>Programa de Contadores Aliados</span>
                             </Badge>
 
-                            {/* Headline */}
+                            {/* Headline (Point 2) */}
                             <h1 className="text-4xl sm:text-5xl xl:text-6xl font-extrabold leading-tight tracking-tight text-foreground max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                El ERP que trabaja para el contador,{" "}
+                                Tu reputación profesional no debería depender{" "}
                                 <span className="bg-gradient-to-r from-sky-500 to-violet-600 bg-clip-text text-transparent">
-                                    no al revés.
+                                    del ERP que usa tu cliente.
                                 </span>
                             </h1>
 
-                            {/* Subtitle */}
+                            {/* Subtitle (Point 2) */}
                             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-                                Centraliza la contabilidad de todas tus PyMEs en un solo lugar.
-                                Sincronización masiva del SAT, bóveda fiscal inteligente y
-                                colaboración sin fricción con tus clientes.
+                                Axioma es el único ERP con motor matemático a 6
+                                decimales y bóveda CSD de grado militar. Cuando
+                                tus clientes usan Axioma, los problemas fiscales
+                                desaparecen — y tú te llevas el crédito.
                             </p>
 
-                            {/* CTAs */}
+                            {/* CTAs (Point 6) */}
                             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto mt-2 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-                                <Button size="lg" className="gap-2 px-8 text-base" asChild>
+                                <Button
+                                    size="lg"
+                                    className="gap-2 px-8 text-base"
+                                    asChild
+                                >
                                     <Link href="/register?role=accountant">
-                                        Comenzar gratis como Contador
+                                        Unirme al Programa de Contadores
+                                        Aliados
                                         <ArrowRight className="h-4 w-4" />
                                     </Link>
                                 </Button>
@@ -164,26 +226,42 @@ export default function ContadoresPage() {
                                     className="gap-2 px-8 text-base"
                                     asChild
                                 >
+                                    <Link href="#programa">
+                                        Ver cómo funciona el programa
+                                    </Link>
+                                </Button>
+                                <Button
+                                    size="lg"
+                                    variant="ghost"
+                                    className="gap-2 px-8 text-base"
+                                    asChild
+                                >
                                     <Link href="#demo">
                                         <Play className="h-4 w-4" />
-                                        Ver demostración
+                                        Ver demo del sistema
                                     </Link>
                                 </Button>
                             </div>
 
-                            {/* Social proof */}
+                            {/* Technical credentials (Point 1) */}
                             <div className="flex flex-wrap items-center justify-center gap-6 mt-2 text-sm text-muted-foreground animate-in fade-in duration-1000 delay-500">
                                 <div className="flex items-center gap-2">
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                                    <span>+200 despachos activos</span>
+                                    <CircleDot className="h-4 w-4 text-sky-500" />
+                                    <span>
+                                        Motor CFDI 4.0 · Cálculo a 6 decimales
+                                    </span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <ShieldCheck className="h-4 w-4 text-sky-500" />
-                                    <span>SAT certificado</span>
+                                    <Lock className="h-4 w-4 text-violet-500" />
+                                    <span>
+                                        Bóveda CSD · Cifrado AES-256
+                                    </span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <CloudLightning className="h-4 w-4 text-amber-500" />
-                                    <span>99.9% uptime</span>
+                                    <FileCheck className="h-4 w-4 text-emerald-500" />
+                                    <span>
+                                        0 rechazos del PAC garantizados
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -202,11 +280,14 @@ export default function ContadoresPage() {
                             </Badge>
                             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
                                 Superpoderes para tu despacho,{" "}
-                                <span className="text-muted-foreground">listos para usar</span>
+                                <span className="text-muted-foreground">
+                                    listos para usar
+                                </span>
                             </h2>
                             <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-                                Herramientas diseñadas desde cero para el flujo real de un
-                                contador que maneja múltiples empresas.
+                                Herramientas diseñadas desde cero para el flujo
+                                real de un contador que maneja múltiples
+                                empresas.
                             </p>
                         </div>
 
@@ -228,11 +309,17 @@ export default function ContadoresPage() {
 
                                     <CardHeader className="pb-2">
                                         <div className="flex items-start justify-between">
-                                            <div className={`p-3 rounded-xl ${b.bg}`}>
-                                                <b.icon className={`h-6 w-6 ${b.color}`} />
+                                            <div
+                                                className={`p-3 rounded-xl ${b.bg}`}
+                                            >
+                                                <b.icon
+                                                    className={`h-6 w-6 ${b.color}`}
+                                                />
                                             </div>
                                         </div>
-                                        <h3 className="mt-4 text-lg font-semibold">{b.title}</h3>
+                                        <h3 className="mt-4 text-lg font-semibold">
+                                            {b.title}
+                                        </h3>
                                     </CardHeader>
 
                                     <CardContent>
@@ -249,7 +336,10 @@ export default function ContadoresPage() {
                 {/* ================================================================ */}
                 {/*  WORKFLOW / PASO A PASO                                          */}
                 {/* ================================================================ */}
-                <section className="py-24 px-4 sm:px-6 lg:px-8 bg-muted/30">
+                <section
+                    id="programa"
+                    className="py-24 px-4 sm:px-6 lg:px-8 bg-muted/30"
+                >
                     <div className="mx-auto max-w-5xl">
                         {/* Section header */}
                         <div className="text-center mb-16">
@@ -257,16 +347,18 @@ export default function ContadoresPage() {
                                 ¿Cómo funciona?
                             </Badge>
                             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-                                Tres pasos para digitalizar{" "}
-                                <span className="text-muted-foreground">tu despacho</span>
+                                Tres pasos para empezar{" "}
+                                <span className="text-muted-foreground">
+                                    a generar ingresos
+                                </span>
                             </h2>
                             <p className="mt-4 text-lg text-muted-foreground max-w-xl mx-auto">
-                                Sin curvas de aprendizaje. Sin migraciones dolorosas. Solo
-                                resultados.
+                                Sin curvas de aprendizaje. Sin migraciones
+                                dolorosas. Solo resultados.
                             </p>
                         </div>
 
-                        {/* Steps */}
+                        {/* Steps (Point 5 — Step 3 updated) */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                             {steps.map((step, index) => (
                                 <div
@@ -287,7 +379,9 @@ export default function ContadoresPage() {
                                         <div
                                             className={`flex items-center justify-center h-20 w-20 rounded-2xl ${step.bg} border border-border/40`}
                                         >
-                                            <step.icon className={`h-8 w-8 ${step.color}`} />
+                                            <step.icon
+                                                className={`h-8 w-8 ${step.color}`}
+                                            />
                                         </div>
                                         <span className="absolute -top-2 -right-2 flex items-center justify-center h-7 w-7 rounded-full bg-foreground text-background text-xs font-bold">
                                             {step.number}
@@ -307,7 +401,7 @@ export default function ContadoresPage() {
                 </section>
 
                 {/* ================================================================ */}
-                {/*  PARTNER PROGRAM                                                  */}
+                {/*  PARTNER PROGRAM — COMMISSION CARDS (Point 3)                     */}
                 {/* ================================================================ */}
                 <section className="relative py-24 px-4 sm:px-6 lg:px-8 bg-foreground text-background overflow-hidden">
                     {/* Background accents */}
@@ -320,77 +414,83 @@ export default function ContadoresPage() {
                         {/* Section header */}
                         <div className="text-center mb-14">
                             <Badge className="mb-4 bg-background/10 text-background border-background/20 hover:bg-background/15 gap-1.5 px-3 py-1.5">
-                                <Handshake className="h-3 w-3 text-amber-400" />
+                                <Calculator className="h-3 w-3 text-amber-400" />
                                 <span>Programa de Partners</span>
                             </Badge>
                             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
-                                Tu portafolio crece,{" "}
+                                Gana mientras tus clientes{" "}
                                 <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
-                                    tus ingresos también.
+                                    crecen.
                                 </span>
-                                <br className="hidden sm:block" />
-                                Únete al Programa de Partners.
                             </h2>
                             <p className="mt-5 text-base sm:text-lg text-background/70 max-w-2xl mx-auto leading-relaxed">
-                                No solo te damos la mejor herramienta fiscal. Te recompensamos
-                                por cada PyME que sumes a Axioma con una{" "}
-                                <strong className="text-background font-semibold">bonificación mensual recurrente</strong>{" "}
-                                mientras el cliente siga activo.
+                                Por cada empresa que registres en Axioma y
+                                mantenga su suscripción activa, recibes una{" "}
+                                <strong className="text-background font-semibold">
+                                    comisión mensual recurrente
+                                </strong>
+                                . Automática. Sin papeleo.
                             </p>
                         </div>
 
-                        {/* Benefits grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                            {[
-                                {
-                                    icon: Coins,
-                                    title: "Ingreso Pasivo",
-                                    description:
-                                        "Gana una comisión mensual por cada suscripción activa de tus clientes. Mientras ellos crecen, tú también.",
-                                    iconColor: "text-amber-400",
-                                    iconBg: "bg-amber-400/10",
-                                },
-                                {
-                                    icon: TrendingUp,
-                                    title: "Cero Fricción",
-                                    description:
-                                        "El pago se calcula y se acredita automáticamente en tu panel de Axioma. Sin facturas extra, sin papeleo.",
-                                    iconColor: "text-sky-400",
-                                    iconBg: "bg-sky-400/10",
-                                },
-                                {
-                                    icon: Handshake,
-                                    title: "Ganan Ambos",
-                                    description:
-                                        "Tus clientes obtienen un ERP de primer nivel, tú optimizas tu tiempo y generas una nueva línea de ingresos para tu despacho.",
-                                    iconColor: "text-emerald-400",
-                                    iconBg: "bg-emerald-400/10",
-                                },
-                            ].map((perk, index) => (
+                        {/* Commission cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                            {commissionCards.map((card, index) => (
                                 <Card
-                                    key={perk.title}
-                                    className="bg-background/5 border-background/10 hover:bg-background/10 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4"
+                                    key={card.empresas}
+                                    className={`relative overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 ${card.highlighted
+                                        ? "bg-gradient-to-br from-amber-500/20 to-orange-500/10 border-amber-400/40 shadow-lg shadow-amber-500/10 scale-[1.03]"
+                                        : "bg-background/5 border-background/10 hover:bg-background/10"
+                                        }`}
                                     style={{
                                         animationDelay: `${index * 100}ms`,
                                         animationFillMode: "both",
                                     }}
                                 >
-                                    <CardHeader className="pb-2">
-                                        <div className={`p-3 rounded-xl ${perk.iconBg} w-fit`}>
-                                            <perk.icon className={`h-6 w-6 ${perk.iconColor}`} />
+                                    {card.highlighted && (
+                                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 to-orange-400" />
+                                    )}
+                                    <CardHeader className="pb-2 text-center">
+                                        <div className="flex items-center justify-center gap-2 mb-2">
+                                            <Building2
+                                                className={`h-5 w-5 ${card.highlighted ? "text-amber-400" : "text-background/50"}`}
+                                            />
+                                            <span className="text-lg font-bold text-background">
+                                                {card.empresas} empresas
+                                                activas
+                                            </span>
                                         </div>
-                                        <h3 className="mt-4 text-lg font-semibold text-background">
-                                            {perk.title}
-                                        </h3>
                                     </CardHeader>
-                                    <CardContent>
-                                        <p className="text-sm text-background/60 leading-relaxed">
-                                            {perk.description}
+                                    <CardContent className="text-center space-y-3">
+                                        <div>
+                                            <p className="text-xs text-background/50 uppercase tracking-wider mb-1">
+                                                Comisión estimada
+                                            </p>
+                                            <p
+                                                className={`text-3xl font-extrabold ${card.highlighted ? "text-amber-400" : "text-background"}`}
+                                            >
+                                                {card.comision}
+                                                {" "}
+                                                <span className="text-base font-medium text-background/50">
+                                                    MXN/mes
+                                                </span>
+                                            </p>
+                                        </div>
+                                        <p
+                                            className={`text-sm ${card.highlighted ? "text-amber-300/80" : "text-background/50"}`}
+                                        >
+                                            {card.label}
                                         </p>
                                     </CardContent>
                                 </Card>
                             ))}
                         </div>
+
+                        {/* Disclaimer text */}
+                        <p className="text-center text-sm text-background/40 max-w-2xl mx-auto leading-relaxed mb-10">
+                            $300 MXN por empresa activa, cada mes. Automático.
+                            Sin papeleo.
+                        </p>
 
                         {/* Micro CTA */}
                         <div className="text-center">
@@ -401,7 +501,7 @@ export default function ContadoresPage() {
                                 asChild
                             >
                                 <Link href="/register?role=accountant">
-                                    Conocer detalles del programa
+                                    Unirme al Programa de Contadores Aliados
                                     <ArrowRight className="h-4 w-4" />
                                 </Link>
                             </Button>
@@ -410,7 +510,129 @@ export default function ContadoresPage() {
                 </section>
 
                 {/* ================================================================ */}
-                {/*  FINAL CTA                                                       */}
+                {/*  BADGE SECTION (Point 4)                                          */}
+                {/* ================================================================ */}
+                <section className="py-24 px-4 sm:px-6 lg:px-8 border-t border-border/40">
+                    <div className="mx-auto max-w-4xl">
+                        <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+                            {/* Badge visual mockup */}
+                            <div className="shrink-0">
+                                <div className="relative w-56 h-64 rounded-2xl border-2 border-border/60 bg-gradient-to-br from-background to-muted/50 p-6 flex flex-col items-center justify-center gap-4 shadow-xl">
+                                    {/* Decorative glow */}
+                                    <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-sky-500/10 to-violet-500/10 -z-10 blur-sm" />
+
+                                    {/* Logo */}
+                                    <div className="flex items-center justify-center h-14 w-14 rounded-xl bg-primary">
+                                        <ShieldCheck className="h-7 w-7 text-white" />
+                                    </div>
+
+                                    {/* Badge text */}
+                                    <div className="text-center space-y-1">
+                                        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                                            Axioma
+                                        </p>
+                                        <p className="text-base font-bold text-foreground leading-tight">
+                                            Contador Aliado
+                                            <br />
+                                            Certificado
+                                        </p>
+                                    </div>
+
+                                    {/* Award icon */}
+                                    <Award className="h-6 w-6 text-amber-500" />
+
+                                    {/* Shine effect */}
+                                    <div className="absolute top-4 right-4 h-8 w-8 rounded-full bg-sky-500/10 blur-md" />
+                                </div>
+                            </div>
+
+                            {/* Badge copy */}
+                            <div className="space-y-5 text-center lg:text-left">
+                                <Badge variant="outline" className="mb-2">
+                                    <Award className="h-3 w-3 mr-1.5 text-amber-500" />
+                                    Exclusivo para aliados
+                                </Badge>
+
+                                <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+                                    Algo que puedes presumir{" "}
+                                    <span className="text-muted-foreground">
+                                        con tus clientes.
+                                    </span>
+                                </h2>
+
+                                <p className="text-lg text-muted-foreground leading-relaxed max-w-lg">
+                                    Los contadores aliados de Axioma reciben un
+                                    badge digital{" "}
+                                    <strong className="text-foreground">
+                                        &ldquo;Contador Axioma
+                                        Certificado&rdquo;
+                                    </strong>{" "}
+                                    para su perfil de LinkedIn, firma de correo y
+                                    materiales del despacho. Una señal de que
+                                    usas las herramientas más precisas del
+                                    mercado.
+                                </p>
+
+                                <Button
+                                    size="lg"
+                                    className="gap-2 px-8 text-base"
+                                    asChild
+                                >
+                                    <Link href="/register?role=accountant">
+                                        Quiero ser Contador Axioma Certificado
+                                        <ArrowRight className="h-4 w-4" />
+                                    </Link>
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* ================================================================ */}
+                {/*  FAQ / OBJECTIONS SECTION (Point 7)                               */}
+                {/* ================================================================ */}
+                <section className="py-24 px-4 sm:px-6 lg:px-8 bg-muted/30">
+                    <div className="mx-auto max-w-3xl">
+                        {/* Section header */}
+                        <div className="text-center mb-12">
+                            <Badge variant="outline" className="mb-4">
+                                <MessageCircleQuestion className="h-3 w-3 mr-1.5" />
+                                Preguntas frecuentes
+                            </Badge>
+                            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+                                Resolvemos tus dudas{" "}
+                                <span className="text-muted-foreground">
+                                    antes de que las tengas.
+                                </span>
+                            </h2>
+                        </div>
+
+                        {/* Accordion */}
+                        <Accordion
+                            type="single"
+                            collapsible
+                            className="w-full space-y-3"
+                        >
+                            {faqs.map((faq, index) => (
+                                <AccordionItem
+                                    key={index}
+                                    value={`faq-${index}`}
+                                    className="bg-background border border-border/60 rounded-xl px-6 data-[state=open]:shadow-md transition-shadow"
+                                >
+                                    <AccordionTrigger className="text-left text-base font-semibold hover:no-underline py-5">
+                                        {faq.question}
+                                    </AccordionTrigger>
+                                    <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-5">
+                                        {faq.answer}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                    </div>
+                </section>
+
+                {/* ================================================================ */}
+                {/*  FINAL CTA (Point 6)                                              */}
                 {/* ================================================================ */}
                 <section className="relative py-28 px-4 sm:px-6 lg:px-8 overflow-hidden">
                     {/* Background accents */}
@@ -420,22 +642,25 @@ export default function ContadoresPage() {
                     </div>
 
                     <div className="mx-auto max-w-3xl text-center space-y-8">
-                        <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
-                            <Sparkles className="h-3 w-3 text-amber-500" />
-                            <span>Comienza hoy mismo</span>
+                        <Badge
+                            variant="secondary"
+                            className="gap-1.5 px-3 py-1.5"
+                        >
+                            <Handshake className="h-3 w-3 text-amber-500" />
+                            <span>Únete hoy mismo</span>
                         </Badge>
 
                         <h2 className="text-3xl sm:text-4xl xl:text-5xl font-extrabold tracking-tight leading-tight">
-                            Eleva el nivel de tu despacho hoy.{" "}
+                            Tu despacho merece una nueva{" "}
                             <span className="bg-gradient-to-r from-sky-500 to-violet-600 bg-clip-text text-transparent">
-                                Lleva la contabilidad al futuro.
+                                línea de ingresos.
                             </span>
                         </h2>
 
                         <p className="text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
-                            Únete a cientos de despachos que ya automatizaron la descarga
-                            fiscal, eliminaron el caos de archivos y recuperaron horas cada
-                            semana.
+                            Únete al Programa de Contadores Aliados, refiere
+                            PyMEs a Axioma y genera comisiones recurrentes cada
+                            mes. Sin riesgo, sin inversión, sin complicaciones.
                         </p>
 
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -445,15 +670,15 @@ export default function ContadoresPage() {
                                 asChild
                             >
                                 <Link href="/register?role=accountant">
-                                    Crear mi cuenta de despacho gratis
+                                    Unirme al Programa de Contadores Aliados
                                     <ArrowRight className="h-4 w-4" />
                                 </Link>
                             </Button>
                         </div>
 
                         <p className="text-xs text-muted-foreground">
-                            Sin tarjeta de crédito · Configuración en 10 segundos ·
-                            Cancela cuando quieras
+                            Sin tarjeta de crédito · Alta en 10 segundos · Sin
+                            permanencia mínima
                         </p>
                     </div>
                 </section>

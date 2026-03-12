@@ -49,6 +49,20 @@ export async function getSuppliers() {
     });
 }
 
+export async function getFinancialAccounts() {
+    const auth = await checkRbacAuth();
+    if (!auth.allowed) return [];
+
+    return await db.query.financialAccounts.findMany({
+        where: eq(financialAccounts.organizationId, auth.organizationId!),
+        columns: {
+            id: true,
+            name: true,
+        },
+        orderBy: [desc(financialAccounts.createdAt)],
+    });
+}
+
 // --- Mutations ---
 
 export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
@@ -61,7 +75,7 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
         return { error: "Datos inválidos: " + validatedFields.error.message };
     }
 
-    const { entityId, status, items } = validatedFields.data;
+    const { entityId, status, items, requiresCfdi = true } = validatedFields.data;
     const organizationId = auth.organizationId!;
 
     // Validate Products Exist
@@ -90,9 +104,11 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
                 subtotal += item.quantity * item.price;
             }
 
-            const taxRate = 0.16;
+            const taxRate = requiresCfdi ? 0.16 : 0;
             const totalTaxAmount = subtotal * taxRate;
             const totalAmount = subtotal + totalTaxAmount;
+            
+            const invoiceStatus = requiresCfdi ? 'pending' : 'not_required';
 
             // 1. Create Purchase Order Header
             const [newOrder] = await tx.insert(orders).values({
@@ -100,6 +116,8 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
                 entityId,
                 status,
                 type: 'PURCHASE',
+                requiresCfdi,
+                invoiceStatus,
                 subtotalAmount: subtotal.toFixed(2),
                 totalTaxAmount: totalTaxAmount.toFixed(2),
                 totalRetentionAmount: '0.00',
@@ -158,6 +176,8 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
         return { error: error.message || "Error al crear la orden de compra. Por favor intente de nuevo." };
     }
 }
+
+
 
 export async function registerSupplierPayment(orderId: string, amount: number, method: 'CASH' | 'TRANSFER' | 'CARD' | 'OTHER', accountId: string, reference?: string) {
     const auth = await checkRbacAuth();

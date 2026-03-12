@@ -7,6 +7,7 @@ import { invitations, memberships, users, customRoles } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { randomBytes } from 'crypto'
+import { logAuditTransaction } from '@/lib/audit/logger'
 import {
     inviteUserSchema,
     removeMemberSchema,
@@ -177,6 +178,20 @@ export async function inviteMember(input: InviteUserInput, organizationId: strin
 
         revalidatePath('/dashboard/settings')
 
+        // Inject Audit Log
+        await logAuditTransaction({
+            organizationId,
+            userId: currentUser.id,
+            action: 'CREATE',
+            entityType: 'role_assignment',
+            entityId: invitation.id,
+            newValues: {
+                assignedRole: role,
+                assignedCustomRoleId: customRoleId,
+                assignedToEmail: email.toLowerCase()
+            }
+        });
+
         // Return invitation link for manual sharing
         const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite?token=${token}`
 
@@ -265,6 +280,20 @@ export async function removeMember(memberId: string, organizationId: string) {
 
         // Delete membership
         await db.delete(memberships).where(and(eq(memberships.id, memberId), eq(memberships.organizationId, organizationId)))
+
+        // Inject Audit Log
+        await logAuditTransaction({
+            organizationId,
+            userId: currentUser.id,
+            action: 'DELETE',
+            entityType: 'role_assignment',
+            entityId: targetMembership.id,
+            oldValues: {
+                previousRole: targetMembership.role,
+                previousCustomRoleId: targetMembership.customRoleId,
+                userId: targetMembership.userId
+            }
+        });
 
         revalidatePath('/dashboard/settings')
 
@@ -530,12 +559,26 @@ export async function createCustomRole(input: InsertCustomRoleInput, organizatio
     const { name, description, permissions } = validation.data
 
     try {
-        await db.insert(customRoles).values({
+        const [newRole] = await db.insert(customRoles).values({
             organizationId,
             name,
             description,
             permissions,
-        })
+        }).returning()
+
+        // Inject Audit Log
+        await logAuditTransaction({
+            organizationId,
+            userId: result.user.id,
+            action: 'CREATE',
+            entityType: 'role_definition',
+            entityId: newRole.id,
+            newValues: {
+                name,
+                description,
+                permissions
+            }
+        });
 
         revalidatePath('/dashboard/settings')
         return { success: true }
@@ -565,6 +608,14 @@ export async function updateCustomRole(input: UpdateCustomRoleInput, organizatio
     const { id, name, description, permissions } = validation.data;
 
     try {
+        // Fetch original to record old values
+        const originalRole = await db.query.customRoles.findFirst({
+            where: and(
+                eq(customRoles.id, id),
+                eq(customRoles.organizationId, organizationId)
+            )
+        });
+
         const [updated] = await db.update(customRoles)
             .set({ name, description, permissions })
             .where(
@@ -577,6 +628,27 @@ export async function updateCustomRole(input: UpdateCustomRoleInput, organizatio
 
         if (!updated) {
             return { error: 'No se encontró el rol especificado o no tienes acceso' };
+        }
+
+        // Inject Audit Log
+        if (originalRole) {
+            await logAuditTransaction({
+                organizationId,
+                userId: result.user.id,
+                action: 'UPDATE',
+                entityType: 'role_definition',
+                entityId: updated.id,
+                oldValues: {
+                    name: originalRole.name,
+                    description: originalRole.description,
+                    permissions: originalRole.permissions
+                },
+                newValues: {
+                    name: updated.name,
+                    description: updated.description,
+                    permissions: updated.permissions
+                }
+            });
         }
 
         revalidatePath('/dashboard/settings');
@@ -612,6 +684,14 @@ export async function deleteCustomRole(roleId: string, organizationId: string) {
             return { error: 'No puedes eliminar este rol porque hay miembros del equipo que lo tienen asignado.' };
         }
 
+        // Fetch original to record old values
+        const originalRole = await db.query.customRoles.findFirst({
+            where: and(
+                eq(customRoles.id, roleId),
+                eq(customRoles.organizationId, organizationId)
+            )
+        });
+
         const [deleted] = await db.delete(customRoles)
             .where(
                 and(
@@ -623,6 +703,22 @@ export async function deleteCustomRole(roleId: string, organizationId: string) {
 
         if (!deleted) {
             return { error: 'Rol no encontrado o ya eliminado' };
+        }
+
+        // Inject Audit Log
+        if (originalRole) {
+            await logAuditTransaction({
+                organizationId,
+                userId: result.user.id,
+                action: 'DELETE',
+                entityType: 'role_definition',
+                entityId: deleted.id,
+                oldValues: {
+                    name: originalRole.name,
+                    description: originalRole.description,
+                    permissions: originalRole.permissions
+                }
+            });
         }
 
         revalidatePath('/dashboard/settings');

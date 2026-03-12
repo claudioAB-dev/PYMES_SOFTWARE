@@ -39,7 +39,7 @@ import { es } from "date-fns/locale";
 import { payPayroll } from "../hr/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal, Download, FileText, Plus, Trash2 } from "lucide-react";
+import { MoreHorizontal, Download, FileText, Plus, Trash2, FileCode2 } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -152,6 +152,11 @@ function PayrollActionCell({ payroll, financialAccounts }: { payroll: Payroll, f
                             Descargar Recibo (PDF)
                         </a>
                     </DropdownMenuItem>
+                    <DropdownMenuItem disabled>
+                        <FileCode2 className="mr-2 h-4 w-4" />
+                        Timbrar CFDI
+                        <Badge variant="secondary" className="ml-2 text-[10px] leading-none px-1 py-0 h-4">Próximamente</Badge>
+                    </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
         );
@@ -172,6 +177,11 @@ function PayrollActionCell({ payroll, financialAccounts }: { payroll: Payroll, f
                             <FileText className="mr-2 h-4 w-4" />
                             Descargar Recibo (PDF)
                         </a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled>
+                        <FileCode2 className="mr-2 h-4 w-4" />
+                        Timbrar CFDI
+                        <Badge variant="secondary" className="ml-2 text-[10px] leading-none px-1 py-0 h-4">Próximamente</Badge>
                     </DropdownMenuItem>
                     <DialogTrigger asChild>
                         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>

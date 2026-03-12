@@ -20,6 +20,7 @@ export const satRequestStatusEnum = pgEnum('sat_request_status', ['PENDING', 'PR
 export const cfdiTypeEnum = pgEnum('cfdi_type', ['I', 'E', 'T', 'N', 'P']);
 export const itemTypeEnum = pgEnum('item_type', ['finished_good', 'raw_material', 'sub_assembly', 'service']);
 export const productionStatusEnum = pgEnum('production_status', ['draft', 'in_progress', 'completed', 'cancelled']);
+export const invoiceStatusEnum = pgEnum('invoice_status', ['pending', 'attached', 'not_required']);
 
 // --- TABLES ---
 
@@ -170,10 +171,15 @@ export const bomLines = pgTable("bom_lines", {
 export const orders = pgTable("orders", {
     id: uuid("id").defaultRandom().primaryKey(),
     organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
-    entityId: uuid("entity_id").references(() => entities.id).notNull(),
+    entityId: uuid("entity_id").references(() => entities.id),
     type: orderTypeEnum("type").notNull(),
+    concept: text("concept"),
     status: orderStatusEnum("status").default('DRAFT').notNull(),
     paymentStatus: paymentStatusEnum("payment_status").default('UNPAID').notNull(),
+    invoiceStatus: invoiceStatusEnum("invoice_status").default('pending').notNull(),
+    requiresCfdi: boolean("requires_cfdi").default(true).notNull(),
+    cfdiPdfPath: text("cfdi_pdf_path"),
+    cfdiXmlPath: text("cfdi_xml_path"),
     subtotalAmount: decimal("subtotal_amount", { precision: 12, scale: 2 }).default('0'),
     totalTaxAmount: decimal("total_tax_amount", { precision: 12, scale: 2 }).default('0'),
     totalRetentionAmount: decimal("total_retention_amount", { precision: 12, scale: 2 }).default('0'),
@@ -369,6 +375,38 @@ export const productionOrderMaterials = pgTable("production_order_materials", {
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 19. Product Batches (Lotes de Producto)
+export const productBatches = pgTable("product_batches", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    productId: uuid("product_id").references(() => products.id, { onDelete: 'cascade' }).notNull(),
+    batchNumber: varchar("batch_number", { length: 50 }).notNull(),
+    manufacturingDate: timestamp("manufacturing_date").defaultNow().notNull(),
+    expirationDate: timestamp("expiration_date"),
+    initialQuantity: decimal("initial_quantity", { precision: 12, scale: 2 }).notNull(),
+    currentQuantity: decimal("current_quantity", { precision: 12, scale: 2 }).notNull(),
+    productionOrderId: uuid("production_order_id").references(() => productionOrders.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+    return {
+        uniqueBatchNumber: uniqueIndex("idx_unique_batch_number").on(table.batchNumber),
+    };
+});
+
+// 20. Audit Logs
+export const auditLogs = pgTable("audit_logs", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    userId: uuid("user_id").references(() => users.id).notNull(),
+    action: varchar("action").notNull(),
+    entityType: varchar("entity_type").notNull(),
+    entityId: varchar("entity_id"),
+    oldValues: jsonb("old_values"),
+    newValues: jsonb("new_values"),
+    ipAddress: varchar("ip_address"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // --- RELATIONS ---
 export const productsRelations = relations(products, ({ one, many }) => ({
     organization: one(organizations, { fields: [products.organizationId], references: [organizations.id] }),
@@ -381,6 +419,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     bomComponents: many(bomLines, { relationName: "componentProduct" }),
     productionOrders: many(productionOrders),
     productionOrderMaterials: many(productionOrderMaterials),
+    batches: many(productBatches),
 }));
 
 export const bomLinesRelations = relations(bomLines, ({ one }) => ({
@@ -392,6 +431,7 @@ export const usersRelations = relations(users, ({ many }) => ({
     memberships: many(memberships),
     inventoryMovements: many(inventoryMovements),
     treasuryTransactions: many(treasuryTransactions),
+    auditLogs: many(auditLogs),
 }));
 
 export const organizationsRelations = relations(organizations, ({ one, many }) => ({
@@ -413,6 +453,7 @@ export const organizationsRelations = relations(organizations, ({ one, many }) =
     priceLists: many(priceLists),
     priceListItems: many(priceListItems),
     productionOrders: many(productionOrders),
+    auditLogs: many(auditLogs),
 }));
 
 export const membershipsRelations = relations(memberships, ({ one }) => ({
@@ -505,9 +546,20 @@ export const productionOrdersRelations = relations(productionOrders, ({ one, man
     organization: one(organizations, { fields: [productionOrders.organizationId], references: [organizations.id] }),
     product: one(products, { fields: [productionOrders.productId], references: [products.id] }),
     materials: many(productionOrderMaterials),
+    batches: many(productBatches),
 }));
 
 export const productionOrderMaterialsRelations = relations(productionOrderMaterials, ({ one }) => ({
     productionOrder: one(productionOrders, { fields: [productionOrderMaterials.productionOrderId], references: [productionOrders.id] }),
     material: one(products, { fields: [productionOrderMaterials.materialId], references: [products.id] }),
+}));
+
+export const productBatchesRelations = relations(productBatches, ({ one }) => ({
+    product: one(products, { fields: [productBatches.productId], references: [products.id] }),
+    productionOrder: one(productionOrders, { fields: [productBatches.productionOrderId], references: [productionOrders.id] }),
+}));
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+    organization: one(organizations, { fields: [auditLogs.organizationId], references: [organizations.id] }),
+    user: one(users, { fields: [auditLogs.userId], references: [users.id] }),
 }));

@@ -4,10 +4,24 @@ import { ReconciliationClient } from "./reconciliation-client";
 import { db } from "@/db";
 import { organizations } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Building2 } from "lucide-react";
 
 export default async function ReconciliationPage() {
     const cookieStore = await cookies();
     const organizationId = cookieStore.get('axioma_active_org')?.value || "";
+
+    if (!organizationId) {
+        return (
+            <div className="flex-1 space-y-6 lg:p-8 p-4 pt-16 max-w-7xl mx-auto flex flex-col justify-center min-h-[50vh]">
+                <EmptyState
+                    icon={Building2}
+                    title="Ningún cliente seleccionado"
+                    description="Selecciona una empresa en el menú superior para ver su conciliación fiscal."
+                />
+            </div>
+        );
+    }
 
     let activeOrgName = "Organización Actual";
     if (organizationId) {

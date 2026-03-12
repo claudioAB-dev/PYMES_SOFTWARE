@@ -76,12 +76,20 @@ export default async function OrdersPage() {
                                         {order.id.slice(0, 8)}
                                     </Link>
                                 </TableCell>
-                                <TableCell>{order.entity.commercialName}</TableCell>
+                                <TableCell>{order.entity?.commercialName || "Cliente Desconocido"}</TableCell>
                                 <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
                                 <TableCell>
-                                    <Badge variant={order.status === 'CONFIRMED' ? 'default' : 'secondary'}>
-                                        {order.status === 'CONFIRMED' ? 'Confirmado' : 'Borrador'}
-                                    </Badge>
+                                    <div className="flex gap-2 items-center">
+                                        <Badge variant={order.status === 'CONFIRMED' ? 'default' : 'secondary'}>
+                                            {order.status === 'CONFIRMED' ? 'Confirmado' : 'Borrador'}
+                                        </Badge>
+                                        {order.paymentStatus === 'PAID' && (
+                                            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200" variant="outline">
+                                                <CheckCircle className="w-3 h-3 mr-1" />
+                                                Pagado
+                                            </Badge>
+                                        )}
+                                    </div>
                                 </TableCell>
                                 <TableCell className="text-right font-medium">
                                     ${Number(order.totalAmount).toFixed(2)}
@@ -100,6 +108,17 @@ export default async function OrdersPage() {
                                             }}>
                                                 <Button variant="outline" size="sm" type="submit" title="Convertir a Venta">
                                                     <CheckCircle className="mr-2 h-4 w-4" /> Convertir
+                                                </Button>
+                                            </form>
+                                        )}
+                                        {order.status === 'CONFIRMED' && order.paymentStatus !== 'PAID' && (
+                                            <form action={async () => {
+                                                "use server";
+                                                const { markOrderAsPaid } = await import('@/app/dashboard/orders/actions');
+                                                await markOrderAsPaid(order.id);
+                                            }}>
+                                                <Button variant="outline" size="sm" type="submit" title="Marcar como Pagado">
+                                                    <CheckCircle className="mr-2 h-4 w-4 text-emerald-500" /> Pagado
                                                 </Button>
                                             </form>
                                         )}

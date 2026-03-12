@@ -10,6 +10,7 @@ export const purchaseOrderItemSchema = z.object({
 export const createPurchaseOrderSchema = z.object({
     entityId: z.string().uuid("Proveedor requerido"),
     status: z.enum(orderStatusEnum.enumValues).default('DRAFT'),
+    requiresCfdi: z.boolean().default(true).optional(),
     items: z.array(purchaseOrderItemSchema).min(1, "Debe agregar al menos un producto"),
     expectedDeliveryDate: z.coerce.date({
         required_error: "La fecha estimada de entrega es obligatoria",

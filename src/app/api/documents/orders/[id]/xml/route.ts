@@ -69,10 +69,10 @@ export async function GET(
             tax: tax,
             paymentMethod: 'TRANSFER', // Default for XML since it's not saved at order level, it's at payment level.
             entity: {
-                commercialName: order.entity.commercialName,
-                legalName: order.entity.legalName,
-                taxId: order.entity.taxId,
-                postalCode: order.entity.postalCode,
+                commercialName: order.entity?.commercialName || "Desconocido",
+                legalName: order.entity?.legalName || null,
+                taxId: order.entity?.taxId || null,
+                postalCode: order.entity?.postalCode || null,
             },
             items: order.items.map(item => ({
                 id: item.id,

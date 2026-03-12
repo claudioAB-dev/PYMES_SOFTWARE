@@ -1,112 +1,129 @@
 "use client";
 
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { formatCurrency } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AreaChart, Area, XAxis, YAxis, PieChart, Pie, CartesianGrid } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 
-interface IncomeExpenseData {
+interface CashflowItem {
     name: string;
-    valor: number;
+    Ingresos: number;
+    Egresos: number;
 }
 
-interface PortfolioData {
+interface ExpensePieItem {
     name: string;
     valor: number;
+    fill?: string;
 }
 
 interface DashboardChartsProps {
-    incomeExpenseData: IncomeExpenseData[];
-    portfolioData: PortfolioData[];
+    cashflowData: CashflowItem[];
+    topExpensesData: ExpensePieItem[];
 }
 
-const COLORS = ["#10b981", "#ef4444"]; // Emerald (Ingresos), Red (Gastos)
-const PIE_COLORS = ["#10b981", "#f59e0b"]; // Emerald (Cobrado), Amber (Por Cobrar)
+const cashflowChartConfig = {
+    Ingresos: {
+        label: "Ingresos",
+        color: "hsl(var(--chart-2))",
+    },
+    Egresos: {
+        label: "Egresos",
+        color: "hsl(var(--destructive))",
+    },
+} satisfies ChartConfig;
 
-export function DashboardCharts({ incomeExpenseData, portfolioData }: DashboardChartsProps) {
+export function DashboardCharts({ cashflowData, topExpensesData }: DashboardChartsProps) {
+    
+    const pieConfig = topExpensesData.reduce((acc, curr) => {
+        acc[curr.name] = {
+            label: curr.name,
+            color: curr.fill
+        };
+        return acc;
+    }, {} as ChartConfig);
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-            <Card className="shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-6 mt-6">
+            <Card className="lg:col-span-4 shadow-sm h-full flex flex-col">
                 <CardHeader>
-                    <CardTitle className="text-lg font-medium opacity-80">Ingresos vs Gastos del Mes</CardTitle>
+                    <CardTitle>Flujo de Efectivo (6 Meses)</CardTitle>
+                    <CardDescription>Comparativa de Ingresos vs Egresos</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="h-72">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={incomeExpenseData}>
-                                <XAxis
-                                    dataKey="name"
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tick={{ fill: "hsl(var(--muted-foreground))" }}
-                                />
-                                <YAxis
-                                    tickFormatter={(value) => `$${value / 1000}k`}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                                    width={50}
-                                />
-                                <Tooltip
-                                    formatter={(value: number | undefined) => formatCurrency(value || 0)}
-                                    cursor={{ fill: "transparent" }}
-                                    contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
-                                />
-                                <Bar
-                                    dataKey="valor"
-                                    radius={[4, 4, 0, 0]}
-                                >
-                                    {
-                                        incomeExpenseData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))
-                                    }
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                <CardContent className="flex-1">
+                    <ChartContainer config={cashflowChartConfig} className="h-[300px] w-full">
+                        <AreaChart data={cashflowData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="fillIngresos" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="var(--color-Ingresos)" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="var(--color-Ingresos)" stopOpacity={0.1} />
+                                </linearGradient>
+                                <linearGradient id="fillEgresos" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="var(--color-Egresos)" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="var(--color-Egresos)" stopOpacity={0.1} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                            <XAxis
+                                dataKey="name"
+                                tickLine={false}
+                                axisLine={false}
+                                tickMargin={8}
+                            />
+                            <YAxis
+                                tickFormatter={(value) => `$${value / 1000}k`}
+                                tickLine={false}
+                                axisLine={false}
+                                tickMargin={8}
+                            />
+                            <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
+                            <Area
+                                type="monotone"
+                                dataKey="Ingresos"
+                                stroke="var(--color-Ingresos)"
+                                fillOpacity={1}
+                                fill="url(#fillIngresos)"
+                            />
+                            <Area
+                                type="monotone"
+                                dataKey="Egresos"
+                                stroke="var(--color-Egresos)"
+                                fillOpacity={1}
+                                fill="url(#fillEgresos)"
+                            />
+                            <ChartLegend content={<ChartLegendContent />} />
+                        </AreaChart>
+                    </ChartContainer>
                 </CardContent>
             </Card>
 
-            <Card className="shadow-sm">
+            <Card className="lg:col-span-3 shadow-sm h-full flex flex-col">
                 <CardHeader>
-                    <CardTitle className="text-lg font-medium opacity-80">Estado de Cartera</CardTitle>
+                    <CardTitle>Distribución de Gastos</CardTitle>
+                    <CardDescription>Top Categorías este mes</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="h-72 flex flex-col justify-center">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={portfolioData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={70}
-                                    outerRadius={100}
-                                    paddingAngle={5}
-                                    dataKey="valor"
-                                    stroke="none"
-                                >
-                                    {portfolioData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    formatter={(value: any) => formatCurrency(typeof value === 'number' ? value : 0)}
-                                    contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="flex justify-center gap-6 mt-2">
-                            {portfolioData.map((entry, index) => (
-                                <div key={entry.name} className="flex items-center gap-2">
-                                    <div
-                                        className="w-3 h-3 rounded-full"
-                                        style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
-                                    />
-                                    <span className="text-sm font-medium">{entry.name}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                <CardContent className="flex-1 pb-0 flex items-center justify-center">
+                   {topExpensesData.length > 0 ? (
+                    <ChartContainer config={pieConfig} className="mx-auto aspect-square w-[300px] flex-1">
+                        <PieChart>
+                            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                            <Pie
+                                data={topExpensesData}
+                                dataKey="valor"
+                                nameKey="name"
+                                innerRadius={60}
+                                strokeWidth={2}
+                                paddingAngle={2}
+                            />
+                            <ChartLegend
+                                content={<ChartLegendContent className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center" />} 
+                            />
+                        </PieChart>
+                    </ChartContainer>
+                   ) : (
+                       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                           No hay gastos registrados este mes
+                       </div>
+                   )}
                 </CardContent>
             </Card>
         </div>

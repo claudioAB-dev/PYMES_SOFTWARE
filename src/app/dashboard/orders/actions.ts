@@ -482,3 +482,87 @@ export async function createQuickClient(data: { commercialName: string, taxId?: 
         return { error: "Error al crear el cliente. Es posible que el RFC ya esté en uso." };
     }
 }
+
+export async function markOrderAsPaid(orderId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: "No autorizado" };
+    }
+
+    const userMemberships = await db.query.memberships.findMany({
+        where: eq(memberships.userId, user.id),
+    });
+
+    if (userMemberships.length === 0) return { error: "No organization found" };
+    const organizationId = userMemberships[0].organizationId;
+
+    try {
+        await db.transaction(async (tx) => {
+            const order = await tx.query.orders.findFirst({
+                where: and(
+                    eq(orders.id, orderId),
+                    eq(orders.organizationId, organizationId)
+                ),
+                with: {
+                    payments: true
+                }
+            });
+
+            if (!order) throw new Error("Orden no encontrada");
+
+            if (order.paymentStatus === 'PAID') {
+                return;
+            }
+
+            const total = Number(order.totalAmount);
+            const paid = order.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const pending = total - paid;
+
+            if (pending > 0) {
+                // Determine a valid financial account
+                const account = await tx.query.financialAccounts.findFirst({
+                    where: eq(financialAccounts.organizationId, organizationId)
+                });
+                
+                await tx.insert(payments).values({
+                    organizationId,
+                    orderId,
+                    amount: pending.toFixed(2),
+                    date: new Date(),
+                    method: 'OTHER',
+                    reference: 'Marcado rápido'
+                });
+                
+                // Track in treasury if account exists (highly recommended)
+                if (account) {
+                    await tx.insert(treasuryTransactions).values({
+                        organizationId,
+                        accountId: account.id,
+                        type: 'INCOME',
+                        amount: pending.toFixed(2),
+                        date: new Date(),
+                        description: `Cobro orden rápida #${order.id.slice(0,8)}`,
+                        category: 'SALE',
+                        referenceId: orderId,
+                        createdBy: user.id
+                    });
+                }
+            }
+
+            await tx.update(orders)
+                .set({ paymentStatus: 'PAID' })
+                .where(eq(orders.id, orderId));
+        });
+
+        revalidatePath(`/dashboard/orders/${orderId}`);
+        revalidatePath("/dashboard/orders");
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("Error marking order as paid:", error);
+        return { error: error.message || "Error al actualizar estado" };
+    }
+}
+

@@ -47,8 +47,8 @@ export default async function AccountantDashboard() {
     const orgIds = orgs.map(org => org.id);
 
     // 2. Interfaz - Sección Superior (Adquisición y Comisiones)
-    // Calcular comisiones proyectadas (MVP: $500 por cada PyME)
-    const projectedCommissions = orgs.length * 500;
+    // Calcular comisiones proyectadas (MVP: $300 por cada PyME)
+    const projectedCommissions = orgs.length * 300;
 
     // Link de invitación dinámico
     const invitationLink = `https://axiomaerp.com/register?ref=${userId}`;
@@ -141,7 +141,7 @@ export default async function AccountantDashboard() {
                         </div>
                         <div className="mt-4 flex items-center gap-2 text-sm text-emerald-700/80">
                             <Building2 className="w-4 h-4" />
-                            <span>{orgs.length} PyMEs conectadas x $500 MXN</span>
+                            <span>{orgs.length} PyMEs conectadas x $300 MXN</span>
                         </div>
                     </CardContent>
                 </Card>

@@ -14,6 +14,9 @@ import {
     ClipboardList,
     Factory,
     CalendarDays,
+    FileCheck,
+    Receipt,
+    ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -56,11 +59,25 @@ export function DashboardSidebar({ className, userPermissions }: DashboardSideba
             permissionId: "view:purchases",
         },
         {
+            label: "Gastos y Caja Chica",
+            icon: Receipt,
+            href: "/dashboard/quick-expenses",
+            color: "text-rose-500",
+            permissionId: "manage:quick-expenses",
+        },
+        {
             label: "Tesorería",
             icon: Landmark,
             href: "/dashboard/treasury",
             color: "text-emerald-500",
             permissionId: "view:treasury",
+        },
+        {
+            label: "Buzón Fiscal",
+            icon: Receipt,
+            href: "/dashboard/reconciliation",
+            color: "text-teal-500",
+            permissionId: "view:reconciliation",
         },
         {
             label: "Inventario",
@@ -89,6 +106,13 @@ export function DashboardSidebar({ className, userPermissions }: DashboardSideba
             href: "/dashboard/settings",
             color: "text-gray-500",
             permissionId: "view:settings",
+        },
+        {
+            label: "Auditoría",
+            icon: ShieldAlert,
+            href: "/dashboard/settings/audit",
+            color: "text-rose-600",
+            permissionId: "view:audit", // Note: OWNER and ADMIN roles get '*' permissions
         },
     ];
 

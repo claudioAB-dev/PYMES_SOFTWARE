@@ -3,8 +3,11 @@ import { db } from "@/db"
 import { memberships } from "@/db/schema" // memberships is exported from schema
 import { eq } from "drizzle-orm"
 import { redirect } from "next/navigation"
+import Link from "next/link"
+import { ShieldAlert } from "lucide-react"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 import { GeneralTab } from "./general-tab"
 import { MembersTab } from "./members-tab"
 import { TaxesTab } from "./taxes-tab"
@@ -50,6 +53,14 @@ export default async function SettingsPage() {
         <div className="container mx-auto py-6 space-y-6" suppressHydrationWarning>
             <div className="flex items-center justify-between space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight">Configuración</h2>
+                {role === 'OWNER' || role === 'ADMIN' ? (
+                    <Button variant="outline" asChild>
+                        <Link href="/dashboard/settings/audit">
+                            <ShieldAlert className="w-4 h-4 mr-2" />
+                            Auditoría
+                        </Link>
+                    </Button>
+                ) : null}
             </div>
 
             <Tabs defaultValue="general" className="space-y-4">

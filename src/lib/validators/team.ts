@@ -46,10 +46,13 @@ export type PermissionId =
     | 'view:products'
     | 'view:orders'
     | 'view:purchases'
+    | 'manage:purchases'
+    | 'manage:quick-expenses'
     | 'view:hr'
     | 'view:payroll'
     | 'view:treasury'
     | 'view:receivables'
+    | 'view:reconciliation'
     | 'view:settings';
 
 export const AVAILABLE_PERMISSIONS: { id: PermissionId, name: string, category: string }[] = [
@@ -57,11 +60,14 @@ export const AVAILABLE_PERMISSIONS: { id: PermissionId, name: string, category: 
     { id: 'view:entities', name: 'Gestión de Clientes/Proveedores', category: 'General' },
     { id: 'view:products', name: 'Catálogo de Productos', category: 'Inventario' },
     { id: 'view:orders', name: 'Ventas y Cotizaciones', category: 'Ventas' },
-    { id: 'view:purchases', name: 'Compras y Gastos', category: 'Compras' },
+    { id: 'view:purchases', name: 'Historial de Compras (Solo lectura)', category: 'Compras' },
+    { id: 'manage:purchases', name: 'Gestión de Compras a Proveedores', category: 'Operaciones' },
+    { id: 'manage:quick-expenses', name: 'Registro de Gastos y Caja Chica', category: 'Operaciones' },
     { id: 'view:hr', name: 'Recursos Humanos', category: 'Nómina' },
     { id: 'view:payroll', name: 'Recibos de Nómina', category: 'Nómina' },
     { id: 'view:treasury', name: 'Tesorería y Bancos', category: 'Finanzas' },
     { id: 'view:receivables', name: 'Cuentas por Cobrar/Pagar', category: 'Finanzas' },
+    { id: 'view:reconciliation', name: 'Conciliación', category: 'Administración' },
     { id: 'view:settings', name: 'Configuración de la Empresa', category: 'Administración' }
 ];
 

@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD COLUMN "requires_cfdi" boolean DEFAULT true NOT NULL;

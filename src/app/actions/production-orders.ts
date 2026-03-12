@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { bomLines, productionOrders, productionOrderMaterials, memberships, products, inventoryMovements } from "@/db/schema";
+import { bomLines, productionOrders, productionOrderMaterials, memberships, products, inventoryMovements, productBatches } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { Decimal } from "decimal.js";
@@ -97,7 +97,8 @@ export async function createProductionOrderAction(productId: string, targetQuant
 
 export async function completeProductionOrderAction(
     orderId: string,
-    actualQuantities: { materialId: string; quantity: string }[]
+    actualQuantities: { materialId: string; quantity: string }[],
+    expirationDate: Date | null = null
 ) {
     try {
         const { organizationId, user } = await getOrganizationId();
@@ -169,6 +170,16 @@ export async function completeProductionOrderAction(
         }
 
         // ==========================================
+        // Generate Batch Number: LOTE-YYYYMMDD-XXXX
+        // ==========================================
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const orderSlug = orderId.substring(0, 4).toUpperCase();
+        const batchNumber = `LOTE-${yyyy}${mm}${dd}-${orderSlug}`;
+
+        // ==========================================
         // TRANSACTION: Process inventory and complete
         // ==========================================
         await db.transaction(async (tx: any) => {
@@ -209,7 +220,7 @@ export async function completeProductionOrderAction(
                 await tx.insert(inventoryMovements).values({
                     organizationId,
                     productId: item.materialId,
-                    type: 'ADJUSTMENT', // using ADJUSTMENT for manual outgoing consumption
+                    type: 'ADJUSTMENT',
                     quantity: consumedQtyDec.toString(),
                     previousStock: previousStockStr,
                     newStock: newStockStr,
@@ -219,45 +230,24 @@ export async function completeProductionOrderAction(
                 });
             }
 
-            // STEP 2: Receive the manufactured product and increase its inventory
-            const [targetProductRecord] = await tx.select({ stock: products.stock })
-                .from(products)
-                .where(eq(products.id, order.productId));
+            // STEP 2: Create a Product Batch (Lote) instead of flat stock increment
+            const manufacturedQtyStr = new Decimal(order.targetQuantity as string).toString();
 
-            if (!targetProductRecord) {
-                throw new Error("Producto a fabricar no encontrado en el inventario.");
-            }
-
-            const currentTargetStockDec = new Decimal(targetProductRecord.stock as string);
-            const manufacturedQtyDec = new Decimal(order.targetQuantity as string);
-            const newTargetStockDec = currentTargetStockDec.plus(manufacturedQtyDec);
-
-            const currTargetStockStr = currentTargetStockDec.toString();
-            const newTargetStockStr = newTargetStockDec.toString();
-
-            // Update product stock
-            await tx.update(products)
-                .set({ stock: newTargetStockStr })
-                .where(eq(products.id, order.productId));
-
-            // Insert inventory movement (IN)
-            await tx.insert(inventoryMovements).values({
-                organizationId,
+            await tx.insert(productBatches).values({
                 productId: order.productId,
-                type: 'ADJUSTMENT',
-                quantity: manufacturedQtyDec.toString(),
-                previousStock: currTargetStockStr,
-                newStock: newTargetStockStr,
-                referenceId: orderId,
-                notes: `Entrada por Orden de Producción completada #${orderId.split('-')[0]}`,
-                createdBy: user.id
+                batchNumber: batchNumber,
+                manufacturingDate: now,
+                expirationDate: expirationDate,
+                initialQuantity: manufacturedQtyStr,
+                currentQuantity: manufacturedQtyStr,
+                productionOrderId: orderId,
             });
 
             // STEP 3: Update order status to completed
             await tx.update(productionOrders)
                 .set({
                     status: 'completed',
-                    completionDate: new Date()
+                    completionDate: now
                 })
                 .where(eq(productionOrders.id, orderId));
         });
@@ -267,7 +257,7 @@ export async function completeProductionOrderAction(
         revalidatePath('/dashboard/manufacturing/raw-materials');
         revalidatePath('/dashboard/products');
 
-        return { success: true, message: "Orden completada exitosamente y el inventario ha sido actualizado." };
+        return { success: true, message: "Orden completada exitosamente. Lote generado.", batchNumber };
     } catch (error: any) {
         console.error("Error completing production order:", error);
         return { success: false, error: error.message || "Error al completar la orden de producción." };

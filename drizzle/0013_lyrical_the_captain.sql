@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ALTER COLUMN "entity_id" DROP NOT NULL;

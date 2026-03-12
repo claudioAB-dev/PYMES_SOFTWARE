@@ -111,6 +111,13 @@ export function TaxesTab({ organizationId }: { organizationId: string }) {
                             Asegúrate de <strong>NO subir tu e.firma (FIEL)</strong>. Aunque los archivos se ven iguales, son diferentes certificados.
                         </p>
                     </div>
+
+                    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 mt-3 dark:border-blue-800/50 dark:bg-blue-950/40">
+                        <Calendar className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                        <p className="text-xs text-blue-800 dark:text-blue-300 leading-snug">
+                            El almacenamiento seguro CSD está activo. La conexión directa con el SAT para timbrado automático se habilitará próximamente.
+                        </p>
+                    </div>
                 </div>
 
                 {isLoading ? (

@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { FileDown, FileCode2 } from "lucide-react";
+import { CfdiStatusCard } from "@/components/dashboard/cfdi-status-card";
 
 interface PageProps {
     params: Promise<{ id: string }>;
@@ -148,6 +149,15 @@ export default async function OrderDetailsPage({ params }: PageProps) {
                 {/* Right Column: Customer & Finances */}
                 <div className="space-y-6">
 
+                    {/* CFDI Status */}
+                    <div className="pb-4">
+                        <CfdiStatusCard
+                            orderId={order.id}
+                            invoiceStatus={order.invoiceStatus as "pending" | "attached" | "not_required"}
+                            transactionType="sale"
+                        />
+                    </div>
+
                     {/* Customer Info */}
                     <Card>
                         <CardHeader>
@@ -155,9 +165,9 @@ export default async function OrderDetailsPage({ params }: PageProps) {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-2">
-                                <p className="font-medium">{order.entity.commercialName}</p>
-                                {order.entity.taxId && <p className="text-sm text-muted-foreground">RFC: {order.entity.taxId}</p>}
-                                {order.entity.type && <Badge variant="secondary" className="mt-2 text-xs">{order.entity.type}</Badge>}
+                                <p className="font-medium">{order.entity?.commercialName || "Cliente Desconocido"}</p>
+                                {order.entity?.taxId && <p className="text-sm text-muted-foreground">RFC: {order.entity.taxId}</p>}
+                                {order.entity?.type && <Badge variant="secondary" className="mt-2 text-xs">{order.entity.type}</Badge>}
                             </div>
                         </CardContent>
                     </Card>

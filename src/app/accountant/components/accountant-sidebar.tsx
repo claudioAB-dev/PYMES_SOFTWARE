@@ -31,7 +31,7 @@ export function AccountantSidebar({ activeOrgId }: { activeOrgId?: string }) {
         {
             label: "Conciliación SAT",
             icon: Server,
-            href: "/accountant/sat-sync",
+            href: "/accountant/conciliacion",
             color: "text-orange-500",
         },
     ];
