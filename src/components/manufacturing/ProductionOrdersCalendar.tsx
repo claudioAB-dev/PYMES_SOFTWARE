@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useOptimistic, startTransition } from "react";
 import { format, startOfWeek, addDays, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { CancelOrderButton } from "@/components/manufacturing/CancelOrderButton";
+import { toast } from "sonner";
+import { updateProductionOrderDates } from "@/app/dashboard/manufacturing/planner/actions";
 
 // A basic calendar view mapping orders to days
 type Order = {
@@ -52,9 +54,14 @@ function OrderCard({ order }: { order: Order }) {
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
                 <button
+                    draggable
+                    onDragStart={(e) => {
+                        e.dataTransfer.setData("application/orderId", order.id);
+                        e.dataTransfer.effectAllowed = "move";
+                    }}
                     className={cn(
                         "w-full text-left p-2 text-xs border-l-2 rounded bg-card shadow-sm flex flex-col gap-1",
-                        "hover:shadow-md hover:bg-accent/50 transition-all cursor-pointer",
+                        "hover:shadow-md hover:bg-accent/50 transition-all cursor-grab active:cursor-grabbing",
                         cardAccent[order.status] ?? "border-l-border"
                     )}
                 >
@@ -134,12 +141,46 @@ function OrderCard({ order }: { order: Order }) {
 export function ProductionOrdersCalendar({ orders }: { orders: Order[] }) {
     const [currentDate, setCurrentDate] = useState(new Date());
 
+    const [optimisticOrders, addOptimisticOrder] = useOptimistic(
+        orders,
+        (state: Order[], optimisticOrder: Order) => {
+            return state.map((o) =>
+                o.id === optimisticOrder.id ? optimisticOrder : o
+            );
+        }
+    );
+
+    const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+
     const startDate = startOfWeek(currentDate, { weekStartsOn: 1 }); // Start on Monday
 
     const days = Array.from({ length: 7 }).map((_, i) => addDays(startDate, i));
 
     const getOrdersForDay = (day: Date) => {
-        return orders.filter(o => o.startDate && isSameDay(new Date(o.startDate), day));
+        return optimisticOrders.filter(o => o.startDate && isSameDay(new Date(o.startDate), day));
+    };
+
+    const handleDrop = async (orderId: string, targetDay: Date) => {
+        setDragOverDay(null);
+        
+        const orderToMove = optimisticOrders.find(o => o.id === orderId);
+        if (!orderToMove) return;
+
+        if (isSameDay(new Date(orderToMove.startDate), targetDay)) return;
+
+        const updatedOrder = { ...orderToMove, startDate: targetDay };
+
+        startTransition(() => {
+            addOptimisticOrder(updatedOrder);
+        });
+
+        const response = await updateProductionOrderDates(orderId, targetDay);
+
+        if (!response.success) {
+            toast.error(response.error || "Error al reprogramar la orden");
+        } else {
+            toast.success("Orden reprogramada con éxito");
+        }
     };
 
     const nextWeek = () => setCurrentDate(addDays(currentDate, 7));
@@ -161,8 +202,31 @@ export function ProductionOrdersCalendar({ orders }: { orders: Order[] }) {
 
             <div className="flex-1 border rounded-md overflow-hidden grid grid-cols-7 divide-x">
                 {days.map((day, i) => (
-                    <div key={i} className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50">
-                        <div className="p-2 border-b text-center font-medium bg-muted/50">
+                    <div 
+                        key={i} 
+                        className={cn(
+                            "flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50 transition-colors",
+                            dragOverDay === day.toISOString() && "bg-accent"
+                        )}
+                        onDragOver={(e) => {
+                            e.preventDefault();
+                            setDragOverDay(day.toISOString());
+                        }}
+                        onDragLeave={() => setDragOverDay(null)}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            const orderId = e.dataTransfer.getData("application/orderId");
+                            if (orderId) {
+                                handleDrop(orderId, day);
+                            } else {
+                                setDragOverDay(null);
+                            }
+                        }}
+                    >
+                        <div className={cn(
+                            "p-2 border-b text-center font-medium bg-muted/50 transition-colors",
+                            dragOverDay === day.toISOString() && "bg-primary/10 text-primary border-b-primary/30"
+                        )}>
                             <div className="text-sm text-muted-foreground">{format(day, 'EEEE', { locale: es })}</div>
                             <div className="text-2xl mt-1">{format(day, 'd')}</div>
                         </div>

@@ -45,6 +45,13 @@ export const organizations = pgTable("organizations", {
     address: text("address"),
     phone: text("phone"),
     website: text("website"),
+    // Stripe Billing
+    stripeCustomerId: varchar("stripe_customer_id", { length: 255 }).unique(),
+    stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }).unique(),
+    stripePriceId: varchar("stripe_price_id", { length: 255 }),
+    plan: varchar("plan", { length: 20 }).default('free').notNull(),
+    subscriptionStatus: varchar("subscription_status", { length: 20 }),
+    currentPeriodEnd: timestamp("current_period_end"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

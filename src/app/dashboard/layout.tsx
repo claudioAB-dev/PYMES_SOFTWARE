@@ -7,6 +7,7 @@ import { cookies } from "next/headers";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { getUserPermissions } from "@/lib/auth/permissions";
+import { SubscriptionGuard } from "@/components/providers/subscription-guard";
 
 export const dynamic = 'force-dynamic';
 
@@ -94,19 +95,34 @@ export default async function DashboardLayout({
     const activeOrganization = userMemberships[0].organization;
     const userPermissions = await getUserPermissions(activeOrganization.id);
 
+    // ─── SUBSCRIPTION LIMITS ───
+    const { checkSubscriptionLimits } = await import("@/lib/subscription");
+    const limits = checkSubscriptionLimits(activeOrganization);
+    
     return (
         <div className="h-full relative">
             <div className="hidden h-full md:flex md:w-72 md:flex-col md:fixed md:inset-y-0 z-[80] bg-gray-900">
-                <DashboardSidebar userPermissions={userPermissions} />
+                <DashboardSidebar 
+                    userPermissions={userPermissions} 
+                    currentPlan={activeOrganization.plan}
+                />
             </div>
             <main className="md:pl-72">
                 <DashboardHeader
                     organizationName={activeOrganization.name}
                     userEmail={user.email}
                     userPermissions={userPermissions}
+                    daysLeft={limits.daysLeft}
+                    subscriptionStatus={activeOrganization.subscriptionStatus}
+                    isTrialExpired={limits.isTrialExpired}
                 />
                 <div className="p-4 md:p-8" suppressHydrationWarning>
-                    {children}
+                    <SubscriptionGuard 
+                        isTrialExpired={limits.isTrialExpired} 
+                        plan={activeOrganization.plan}
+                    >
+                        {children}
+                    </SubscriptionGuard>
                 </div>
             </main>
         </div>

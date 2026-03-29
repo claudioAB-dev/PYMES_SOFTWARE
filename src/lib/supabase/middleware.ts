@@ -1,10 +1,10 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest, customHeaders?: Headers) {
     let response = NextResponse.next({
         request: {
-            headers: request.headers,
+            headers: customHeaders || request.headers,
         },
     })
 

@@ -20,14 +20,28 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface DashboardSidebarProps {
     className?: string;
     userPermissions: string[];
+    currentPlan?: string;
 }
 
-export function DashboardSidebar({ className, userPermissions }: DashboardSidebarProps) {
+export function DashboardSidebar({ className, userPermissions, currentPlan = "free" }: DashboardSidebarProps) {
     const pathname = usePathname();
+    const router = useRouter();
+
+    const isManufacturaPlan = currentPlan === "manufactura";
+
+    const handleManufacturaTabClick = (e: React.MouseEvent) => {
+        if (!isManufacturaPlan) {
+            e.preventDefault();
+            toast.info("Mejora tu plan para acceder al módulo de Manufactura");
+            router.push("/dashboard/billing?upgrade=manufactura");
+        }
+    };
 
     const coreRoutes = [
         {
@@ -174,6 +188,7 @@ export function DashboardSidebar({ className, userPermissions }: DashboardSideba
                         </TabsTrigger>
                         <TabsTrigger
                             value="manufactura"
+                            onClick={handleManufacturaTabClick}
                             className="w-full data-[state=active]:bg-slate-700 data-[state=active]:text-amber-500 text-zinc-400"
                         >
                             Manufactura

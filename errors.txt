@@ -1,5 +1,0 @@
-﻿src/app/dashboard/settings/team/actions.ts(65,17): error TS2353: Object literal may only specify known properties, and 'customRole' does not exist in type '{ organization?: true | { columns?: { id?: boolean | undefined; name?: boolean | undefined; slug?: boolean | undefined; taxId?: boolean | undefined; logoUrl?: boolean | undefined; address?: boolean | undefined; phone?: boolean | undefined; website?: boolean | undefined; createdAt?: boolean | undefined; updatedAt?: b...'.
-src/app/dashboard/settings/team/invite-member-dialog.tsx(46,26): error TS2304: Cannot find name 'InviteUserInput'.
-src/app/dashboard/settings/team/invite-member-dialog.tsx(47,31): error TS2304: Cannot find name 'inviteUserSchema'.
-src/app/dashboard/settings/team/invite-member-dialog.tsx(55,35): error TS2304: Cannot find name 'InviteUserInput'.
-src/app/dashboard/settings/team/invite-member-dialog.tsx(57,34): error TS2304: Cannot find name 'inviteMember'.

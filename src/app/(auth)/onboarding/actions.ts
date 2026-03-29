@@ -86,15 +86,21 @@ export async function createOrganizationAction(input: CreateOrganizationInput) {
         accountantIdToLink = user.user_metadata.invited_by_ref;
     }
 
+    const trialDays = 15;
+    const currentPeriodEnd = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
+
     try {
         await db.transaction(async (tx) => {
-            // 1. Create Organization
+            // 1. Create Organization with 15-day trial
             const [newOrg] = await tx
                 .insert(organizations)
                 .values({
                     name,
                     slug,
                     taxId: rfc || null,
+                    plan: 'pro',
+                    subscriptionStatus: 'trialing',
+                    currentPeriodEnd: currentPeriodEnd,
                 })
                 .returning({ id: organizations.id });
 

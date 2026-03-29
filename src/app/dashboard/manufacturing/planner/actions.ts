@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { bomLines, orderItems, productionOrders, productionOrderMaterials, orders } from "@/db/schema";
 import { eq, inArray, and, sql } from "drizzle-orm";
 import { Decimal } from "decimal.js";
+import { revalidatePath } from "next/cache";
 
 interface CapacityResult {
     maxProducible: number;
@@ -144,5 +145,32 @@ export async function calculateProductionCapacity(productId: string): Promise<Ca
     } catch (error) {
         console.error("Error calculating production capacity:", error);
         throw new Error("Failed to calculate production capacity");
+    }
+}
+
+export async function updateProductionOrderDates(
+    orderId: string,
+    newStartDate: Date,
+    newEndDate?: Date
+) {
+    try {
+        if (!orderId || !newStartDate) {
+            return { success: false, error: "Faltan parámetros requeridos" };
+        }
+
+        await db.update(productionOrders)
+            .set({ 
+                startDate: newStartDate,
+                ...(newEndDate ? { completionDate: newEndDate } : {}),
+                updatedAt: new Date()
+            })
+            .where(eq(productionOrders.id, orderId));
+
+        revalidatePath('/dashboard/manufacturing/planner');
+        
+        return { success: true };
+    } catch (error) {
+        console.error("Error updating production order:", error);
+        return { success: false, error: error instanceof Error ? error.message : "Error interno del servidor" };
     }
 }

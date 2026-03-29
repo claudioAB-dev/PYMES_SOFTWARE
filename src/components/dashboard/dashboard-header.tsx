@@ -22,16 +22,31 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { Zap } from "lucide-react";
 
 interface DashboardHeaderProps {
     organizationName: string;
     userEmail?: string;
     userPermissions: string[];
+    daysLeft?: number;
+    subscriptionStatus?: string | null;
+    isTrialExpired?: boolean;
 }
 
-export function DashboardHeader({ organizationName, userEmail, userPermissions }: DashboardHeaderProps) {
+export function DashboardHeader({ 
+    organizationName, 
+    userEmail, 
+    userPermissions,
+    daysLeft,
+    subscriptionStatus,
+    isTrialExpired
+}: DashboardHeaderProps) {
     const [isOpen, setIsOpen] = useState(false);
     const pathname = usePathname();
+
+    const isTrial = subscriptionStatus === 'trialing';
+    const isLowDays = (daysLeft ?? 0) <= 3;
 
     // Close sheet when pathname changes
     useEffect(() => {
@@ -50,8 +65,25 @@ export function DashboardHeader({ organizationName, userEmail, userPermissions }
                         <DashboardSidebar userPermissions={userPermissions} />
                     </SheetContent>
                 </Sheet>
-                <div className="font-semibold text-lg text-slate-800" suppressHydrationWarning>
-                    {organizationName}
+                <div className="flex flex-col md:flex-row md:items-center gap-x-3">
+                    <div className="font-semibold text-lg text-slate-800" suppressHydrationWarning>
+                        {organizationName}
+                    </div>
+                    {isTrial && (
+                        <Link href="/dashboard/billing">
+                            <Badge 
+                                variant={isLowDays ? "destructive" : "secondary"}
+                                className={`flex items-center gap-x-1 cursor-pointer hover:opacity-80 transition py-1 px-3 ${
+                                    !isLowDays && "bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200"
+                                }`}
+                            >
+                                <Zap className="h-3 w-3 fill-current" />
+                                <span>
+                                    Prueba gratuita: Quedan {daysLeft} {daysLeft === 1 ? 'día' : 'días'}
+                                </span>
+                            </Badge>
+                        </Link>
+                    )}
                 </div>
             </div>
 

@@ -13,6 +13,7 @@ import { MembersTab } from "./members-tab"
 import { TaxesTab } from "./taxes-tab"
 import { PreferencesTab } from "./preferences-tab"
 import { RolesTab } from "./roles-tab"
+import { PlanTab } from "./plan-tab"
 import { getCustomRoles } from "./team/actions"
 
 async function getOrganization() {
@@ -71,6 +72,7 @@ export default async function SettingsPage() {
                         <TabsTrigger value="roles">Roles</TabsTrigger>
                     ) : null}
                     <TabsTrigger value="taxes">Impuestos</TabsTrigger>
+                    <TabsTrigger value="plan">Plan</TabsTrigger>
                     <TabsTrigger value="preferences">Preferencias</TabsTrigger>
                 </TabsList>
                 <TabsContent value="general" className="space-y-4">
@@ -86,6 +88,9 @@ export default async function SettingsPage() {
                 ) : null}
                 <TabsContent value="taxes" className="space-y-4">
                     <TaxesTab organizationId={organization.id} />
+                </TabsContent>
+                <TabsContent value="plan" className="space-y-4">
+                    <PlanTab organization={organization} />
                 </TabsContent>
                 <TabsContent value="preferences" className="space-y-4">
                     <PreferencesTab />

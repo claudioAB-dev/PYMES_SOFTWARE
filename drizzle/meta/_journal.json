@@ -106,6 +106,20 @@
       "when": 1773276306465,
       "tag": "0014_silly_agent_zero",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1773360263343,
+      "tag": "0015_ordinary_doctor_spectrum",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1773361488371,
+      "tag": "0016_many_junta",
+      "breakpoints": true
     }
   ]
 }
