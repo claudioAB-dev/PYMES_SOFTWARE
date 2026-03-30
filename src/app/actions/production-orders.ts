@@ -98,7 +98,7 @@ export async function createProductionOrderAction(productId: string, targetQuant
 export async function completeProductionOrderAction(
     orderId: string,
     actualQuantities: { materialId: string; quantity: string }[],
-    expirationDate: Date | null = null
+    batchData: { batchNumber: string; manufacturingDate: Date; expirationDate: Date | null }
 ) {
     try {
         const { organizationId, user } = await getOrganizationId();
@@ -170,14 +170,9 @@ export async function completeProductionOrderAction(
         }
 
         // ==========================================
-        // Generate Batch Number: LOTE-YYYYMMDD-XXXX
+        // Batch Data
         // ==========================================
-        const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const dd = String(now.getDate()).padStart(2, '0');
-        const orderSlug = orderId.substring(0, 4).toUpperCase();
-        const batchNumber = `LOTE-${yyyy}${mm}${dd}-${orderSlug}`;
+        const { batchNumber, manufacturingDate, expirationDate } = batchData;
 
         // ==========================================
         // TRANSACTION: Process inventory and complete
@@ -236,7 +231,7 @@ export async function completeProductionOrderAction(
             await tx.insert(productBatches).values({
                 productId: order.productId,
                 batchNumber: batchNumber,
-                manufacturingDate: now,
+                manufacturingDate: manufacturingDate,
                 expirationDate: expirationDate,
                 initialQuantity: manufacturedQtyStr,
                 currentQuantity: manufacturedQtyStr,
@@ -247,7 +242,7 @@ export async function completeProductionOrderAction(
             await tx.update(productionOrders)
                 .set({
                     status: 'completed',
-                    completionDate: now
+                    completionDate: new Date()
                 })
                 .where(eq(productionOrders.id, orderId));
         });

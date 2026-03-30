@@ -13,6 +13,7 @@ import {
     FormField,
     FormItem,
     FormMessage,
+    FormLabel,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,6 +29,14 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -50,13 +59,22 @@ const formSchema = z.object({
     materials: z.array(materialSchema),
 });
 
+const batchFormSchema = z.object({
+    batchNumber: z.string().min(1, "El número de lote es requerido"),
+    manufacturingDate: z.date({
+        required_error: "La fecha de fabricación es requerida",
+    }),
+    expirationDate: z.date().optional().nullable(),
+});
+
 type FormValues = z.infer<typeof formSchema>;
+type BatchFormValues = z.infer<typeof batchFormSchema>;
 
 export function OrderDetailsClient({ order }: { order: any }) {
     const isCompleted = order.status === 'completed' || order.status === 'cancelled';
     const [isPending, startTransition] = useTransition();
     const [stockErrors, setStockErrors] = useState<any[] | null>(null);
-    const [expirationDate, setExpirationDate] = useState<Date | undefined>(undefined);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
     const router = useRouter();
 
     const form = useForm<FormValues>({
@@ -77,9 +95,36 @@ export function OrderDetailsClient({ order }: { order: any }) {
         control: form.control,
     });
 
-    function onSubmit(data: FormValues) {
+    // Helper to generate default batch number
+    const generateDefaultBatchNumber = () => {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const orderSlug = order.id.substring(0, 4).toUpperCase();
+        return `LOTE-${yyyy}${mm}${dd}-${orderSlug}`;
+    };
+
+    const batchForm = useForm<BatchFormValues>({
+        resolver: zodResolver(batchFormSchema),
+        defaultValues: {
+            batchNumber: generateDefaultBatchNumber(),
+            manufacturingDate: new Date(),
+            expirationDate: null,
+        },
+    });
+
+    function onOpenDialogClick() {
+        form.handleSubmit(() => {
+            // Material form is valid, open the batch dialog
+            setIsDialogOpen(true);
+        })();
+    }
+
+    function onSubmitFinal(batchData: BatchFormValues) {
         setStockErrors(null);
         startTransition(async () => {
+            const data = form.getValues();
             const quantitiesToSubmit = data.materials.map(m => ({
                 materialId: m.materialId,
                 quantity: m.actualQuantity,
@@ -88,13 +133,19 @@ export function OrderDetailsClient({ order }: { order: any }) {
             const result = await completeProductionOrderAction(
                 order.id,
                 quantitiesToSubmit,
-                expirationDate ?? null
+                {
+                    batchNumber: batchData.batchNumber,
+                    manufacturingDate: batchData.manufacturingDate,
+                    expirationDate: batchData.expirationDate ?? null
+                }
             );
 
             if (result.success) {
                 toast.success(`Orden completada. Lote ${result.batchNumber} generado e ingresado al almacén.`);
+                setIsDialogOpen(false);
                 router.refresh();
             } else {
+                setIsDialogOpen(false);
                 if (result.errorType === 'INSUFFICIENT_STOCK' && result.details) {
                     toast.error(result.message);
                     setStockErrors(result.details);
@@ -161,67 +212,17 @@ export function OrderDetailsClient({ order }: { order: any }) {
                             <CancelOrderButton orderId={order.id} variant="outline" />
                         )}
                         <Button
-                            onClick={form.handleSubmit(onSubmit)}
+                            type="button"
+                            onClick={onOpenDialogClick}
                             disabled={isPending}
                             className="bg-green-600 hover:bg-green-700 text-white"
                         >
-                            {isPending ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                            )}
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
                             Completar Orden
                         </Button>
                     </div>
                 )}
             </div>
-
-            {/* Expiration Date Picker - only shown when order is not completed */}
-            {!isCompleted && (
-                <div className="flex items-center gap-4 p-4 border rounded-lg bg-muted/30">
-                    <div className="flex-1">
-                        <p className="text-sm font-medium mb-1">Fecha de Caducidad del Lote</p>
-                        <p className="text-xs text-muted-foreground">Opcional. Importante para productos perecederos.</p>
-                    </div>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="outline"
-                                className={cn(
-                                    "w-[260px] justify-start text-left font-normal",
-                                    !expirationDate && "text-muted-foreground"
-                                )}
-                                disabled={isPending}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {expirationDate
-                                    ? format(expirationDate, "PPP", { locale: es })
-                                    : "Seleccionar fecha..."
-                                }
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                            <Calendar
-                                mode="single"
-                                selected={expirationDate}
-                                onSelect={setExpirationDate}
-                                disabled={(date) => date < new Date()}
-                                initialFocus
-                            />
-                        </PopoverContent>
-                    </Popover>
-                    {expirationDate && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setExpirationDate(undefined)}
-                            className="text-muted-foreground"
-                        >
-                            Limpiar
-                        </Button>
-                    )}
-                </div>
-            )}
 
             {stockErrors && stockErrors.length > 0 && (
                 <Alert variant="destructive">
@@ -241,7 +242,7 @@ export function OrderDetailsClient({ order }: { order: any }) {
 
             <div className="rounded-md border bg-card">
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)}>
+                    <form>
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -304,6 +305,120 @@ export function OrderDetailsClient({ order }: { order: any }) {
                     </form>
                 </Form>
             </div>
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Trazabilidad del Lote</DialogTitle>
+                        <DialogDescription>
+                            Ingrese los datos de procedencia del lote generado por esta orden de producción.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Form {...batchForm}>
+                        <form onSubmit={batchForm.handleSubmit(onSubmitFinal)} className="space-y-4">
+                            <FormField
+                                control={batchForm.control}
+                                name="batchNumber"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Número de Lote</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="LOTE-XXXX" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={batchForm.control}
+                                name="manufacturingDate"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-col">
+                                        <FormLabel>Fecha de Fabricación</FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button
+                                                        variant={"outline"}
+                                                        className={cn(
+                                                            "w-full pl-3 text-left font-normal",
+                                                            !field.value && "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                        {field.value ? (
+                                                            format(field.value, "PPP", { locale: es })
+                                                        ) : (
+                                                            <span>Elegir fecha...</span>
+                                                        )}
+                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={field.value}
+                                                    onSelect={field.onChange}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={batchForm.control}
+                                name="expirationDate"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-col">
+                                        <FormLabel>Fecha de Caducidad (Opcional)</FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button
+                                                        variant={"outline"}
+                                                        className={cn(
+                                                            "w-full pl-3 text-left font-normal",
+                                                            !field.value && "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                        {field.value ? (
+                                                            format(field.value, "PPP", { locale: es })
+                                                        ) : (
+                                                            <span>No aplica</span>
+                                                        )}
+                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={field.value || undefined}
+                                                    onSelect={field.onChange}
+                                                    disabled={(date) => date < new Date()}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <DialogFooter className="pt-4">
+                                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isPending}>
+                                    Cancelar
+                                </Button>
+                                <Button type="submit" disabled={isPending}>
+                                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                    Completar y Guardar
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/db";
-import { orders, orderItems, memberships, products, entities, payments, inventoryMovements, financialAccounts, treasuryTransactions } from "@/db/schema";
+import { orders, orderItems, memberships, products, entities, payments, inventoryMovements, financialAccounts, treasuryTransactions, payables } from "@/db/schema";
 import { eq, desc, and, inArray, sql } from "drizzle-orm";
 import { createPurchaseOrderSchema, CreatePurchaseOrderInput } from "@/lib/validators/purchases";
 import { revalidatePath } from "next/cache";
@@ -165,6 +165,31 @@ export async function createPurchaseOrder(input: CreatePurchaseOrderInput) {
                         });
                     }
                 }
+            }
+
+            // Generar Cuenta por Pagar (Payable) si se crea como CONFIRMED
+            if (status === 'CONFIRMED' && entityId) {
+                const entityData = await tx.query.entities.findFirst({
+                    where: and(eq(entities.id, entityId), eq(entities.organizationId, organizationId))
+                });
+
+                const creditDays = entityData?.creditDays || 0;
+                const finalCreditDays = creditDays > 0 ? creditDays : 30;
+
+                const issueDate = new Date();
+                const dueDate = new Date();
+                dueDate.setDate(issueDate.getDate() + finalCreditDays);
+
+                await tx.insert(payables).values({
+                    organizationId,
+                    entityId,
+                    orderId: newOrder.id,
+                    amount: totalAmount.toFixed(2),
+                    balance: totalAmount.toFixed(2),
+                    status: 'UNPAID',
+                    issueDate,
+                    dueDate
+                });
             }
         });
 
@@ -353,12 +378,73 @@ export async function updatePurchaseOrderStatus(orderId: string, newStatus: 'CON
                         });
                     }
                 }
+
+                // Generar Cuenta por Pagar (Payable) si no existe
+                if (order.entityId) {
+                    const existingPayable = await tx.query.payables.findFirst({
+                        where: and(eq(payables.orderId, orderId), eq(payables.organizationId, organizationId))
+                    });
+
+                    if (!existingPayable) {
+                        const entityData = await tx.query.entities.findFirst({
+                            where: and(eq(entities.id, order.entityId), eq(entities.organizationId, organizationId))
+                        });
+
+                        const creditDays = entityData?.creditDays || 0;
+                        const finalCreditDays = creditDays > 0 ? creditDays : 30;
+
+                        const issueDate = new Date();
+                        const dueDate = new Date();
+                        dueDate.setDate(issueDate.getDate() + finalCreditDays);
+
+                        await tx.insert(payables).values({
+                            organizationId,
+                            entityId: order.entityId,
+                            orderId: order.id,
+                            amount: order.totalAmount || "0",
+                            balance: order.totalAmount || "0",
+                            status: 'UNPAID',
+                            issueDate,
+                            dueDate
+                        });
+                    }
+                }
             }
 
-            // Si estaba DRAFT y pasa a CONFIRMED no hacemos nada si asumimos que en DRAFT ya sumó,
-            // pero si DRAFT no sumó, deberíamos sumar aquí. En mi createPurchaseOrder asumo que DRAFT ya suma.
-            // Para mantener simple y que concuerde con "cuando una orden de compra se crea o pasa a estado CONFIRMED",
-            // ya sumamos en create, así que este caso general de CANCELLED revierte y viceversa está bien.
+            // Si estaba DRAFT y pasa a CONFIRMED (caso común si no se generó automático en create)
+            // Ya sumamos inventario en createPurchaseOrder, así que no lo duplicamos aquí,
+            // pero sí generamos la cuenta por pagar si falta.
+            if (order.status === 'DRAFT' && newStatus === 'CONFIRMED') {
+                if (order.entityId) {
+                    const existingPayable = await tx.query.payables.findFirst({
+                        where: and(eq(payables.orderId, orderId), eq(payables.organizationId, organizationId))
+                    });
+
+                    if (!existingPayable) {
+                        const entityData = await tx.query.entities.findFirst({
+                            where: and(eq(entities.id, order.entityId), eq(entities.organizationId, organizationId))
+                        });
+
+                        const creditDays = entityData?.creditDays || 0;
+                        const finalCreditDays = creditDays > 0 ? creditDays : 30;
+
+                        const issueDate = new Date();
+                        const dueDate = new Date();
+                        dueDate.setDate(issueDate.getDate() + finalCreditDays);
+
+                        await tx.insert(payables).values({
+                            organizationId,
+                            entityId: order.entityId,
+                            orderId: order.id,
+                            amount: order.totalAmount || "0",
+                            balance: order.totalAmount || "0",
+                            status: 'UNPAID',
+                            issueDate,
+                            dueDate
+                        });
+                    }
+                }
+            }
 
             await tx.update(orders)
                 .set({ status: newStatus })

@@ -45,6 +45,7 @@ export const organizations = pgTable("organizations", {
     address: text("address"),
     phone: text("phone"),
     website: text("website"),
+    email: text("email"),
     // Stripe Billing
     stripeCustomerId: varchar("stripe_customer_id", { length: 255 }).unique(),
     stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }).unique(),
@@ -414,6 +415,36 @@ export const auditLogs = pgTable("audit_logs", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// 21. Cuentas por Cobrar (Receivables)
+export const receivables = pgTable("receivables", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    entityId: uuid("entity_id").references(() => entities.id).notNull(),
+    orderId: uuid("order_id").references(() => orders.id),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    balance: decimal("balance", { precision: 12, scale: 2 }).notNull(),
+    status: paymentStatusEnum("status").default('UNPAID').notNull(),
+    issueDate: timestamp("issue_date").defaultNow().notNull(),
+    dueDate: timestamp("due_date").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 22. Cuentas por Pagar (Payables)
+export const payables = pgTable("payables", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+    entityId: uuid("entity_id").references(() => entities.id).notNull(),
+    orderId: uuid("order_id").references(() => orders.id),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    balance: decimal("balance", { precision: 12, scale: 2 }).notNull(),
+    status: paymentStatusEnum("status").default('UNPAID').notNull(),
+    issueDate: timestamp("issue_date").defaultNow().notNull(),
+    dueDate: timestamp("due_date").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // --- RELATIONS ---
 export const productsRelations = relations(products, ({ one, many }) => ({
     organization: one(organizations, { fields: [products.organizationId], references: [organizations.id] }),
@@ -569,4 +600,16 @@ export const productBatchesRelations = relations(productBatches, ({ one }) => ({
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
     organization: one(organizations, { fields: [auditLogs.organizationId], references: [organizations.id] }),
     user: one(users, { fields: [auditLogs.userId], references: [users.id] }),
+}));
+
+export const receivablesRelations = relations(receivables, ({ one }) => ({
+    organization: one(organizations, { fields: [receivables.organizationId], references: [organizations.id] }),
+    entity: one(entities, { fields: [receivables.entityId], references: [entities.id] }),
+    order: one(orders, { fields: [receivables.orderId], references: [orders.id] }),
+}));
+
+export const payablesRelations = relations(payables, ({ one }) => ({
+    organization: one(organizations, { fields: [payables.organizationId], references: [organizations.id] }),
+    entity: one(entities, { fields: [payables.entityId], references: [entities.id] }),
+    order: one(orders, { fields: [payables.orderId], references: [orders.id] }),
 }));

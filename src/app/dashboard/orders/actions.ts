@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/db";
-import { orders, orderItems, memberships, products, entities, payments, inventoryMovements, financialAccounts, treasuryTransactions } from "@/db/schema";
+import { orders, orderItems, memberships, products, entities, payments, inventoryMovements, financialAccounts, treasuryTransactions, receivables } from "@/db/schema";
 import { eq, desc, and, inArray, sql } from "drizzle-orm";
 import { createOrderSchema, CreateOrderInput } from "@/lib/validators/orders";
 import { revalidatePath } from "next/cache";
@@ -207,6 +207,31 @@ export async function createOrder(input: CreateOrderInput) {
                         createdBy: user.id
                     });
                 }
+            }
+
+            // Generar Cuenta por Cobrar (Receivable) si se crea como CONFIRMED
+            if (status === 'CONFIRMED' && entityId) {
+                const entityData = await tx.query.entities.findFirst({
+                    where: and(eq(entities.id, entityId), eq(entities.organizationId, organizationId))
+                });
+
+                const creditDays = entityData?.creditDays || 0;
+                const finalCreditDays = creditDays > 0 ? creditDays : 30;
+
+                const issueDate = new Date();
+                const dueDate = new Date();
+                dueDate.setDate(issueDate.getDate() + finalCreditDays);
+
+                await tx.insert(receivables).values({
+                    organizationId,
+                    entityId,
+                    orderId: newOrder.id,
+                    amount: totalAmount.toFixed(2),
+                    balance: totalAmount.toFixed(2),
+                    status: 'UNPAID',
+                    issueDate,
+                    dueDate
+                });
             }
         });
 
@@ -430,6 +455,37 @@ export async function updateOrderStatus(orderId: string, newStatus: 'CONFIRMED' 
                             referenceId: orderId,
                             notes: order.status === 'DRAFT' ? "Quote converted to sale" : "Order reactivated",
                             createdBy: user.id
+                        });
+                    }
+                }
+
+                // Generar Cuenta por Cobrar (Receivable)
+                if (order.entityId) {
+                    const existingReceivable = await tx.query.receivables.findFirst({
+                        where: and(eq(receivables.orderId, orderId), eq(receivables.organizationId, organizationId))
+                    });
+
+                    if (!existingReceivable) {
+                        const entityData = await tx.query.entities.findFirst({
+                            where: and(eq(entities.id, order.entityId), eq(entities.organizationId, organizationId))
+                        });
+
+                        const creditDays = entityData?.creditDays || 0;
+                        const finalCreditDays = creditDays > 0 ? creditDays : 30;
+
+                        const issueDate = new Date();
+                        const dueDate = new Date();
+                        dueDate.setDate(issueDate.getDate() + finalCreditDays);
+
+                        await tx.insert(receivables).values({
+                            organizationId,
+                            entityId: order.entityId,
+                            orderId: order.id,
+                            amount: order.totalAmount || "0",
+                            balance: order.totalAmount || "0",
+                            status: 'UNPAID',
+                            issueDate,
+                            dueDate
                         });
                     }
                 }

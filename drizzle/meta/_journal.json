@@ -120,6 +120,20 @@
       "when": 1773361488371,
       "tag": "0016_many_junta",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1774832953049,
+      "tag": "0017_faithful_sandman",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1774840145213,
+      "tag": "0018_old_redwing",
+      "breakpoints": true
     }
   ]
 }

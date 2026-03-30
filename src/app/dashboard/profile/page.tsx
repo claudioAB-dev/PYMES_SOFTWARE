@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { getUserProfile } from "./actions"
 import { ProfileForm } from "./profile-form"
 import { SecurityForm } from "./security-form"
+import { SubscriptionCard } from "./subscription-card"
 import { OrganizationsList } from "./organizations-list"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -45,6 +46,16 @@ export default async function ProfilePage() {
                         <TabsContent value="general" className="space-y-6">
                             <div className="grid gap-6 md:grid-cols-[1fr_1fr] lg:grid-cols-[1fr_400px]">
                                 <div className="space-y-6">
+                                    {memberships && memberships.length > 0 && (
+                                        <Suspense fallback={<div className="h-[200px] w-full bg-muted/20 animate-pulse rounded-lg" />}>
+                                            <SubscriptionCard 
+                                                orgId={memberships[0].organization.id}
+                                                organizationName={memberships[0].organization.name}
+                                                plan={memberships[0].organization.plan}
+                                            />
+                                        </Suspense>
+                                    )}
+
                                     <Suspense fallback={<div className="h-[300px] w-full bg-muted/20 animate-pulse rounded-lg" />}>
                                         <ProfileForm user={user} />
                                     </Suspense>

@@ -17,8 +17,17 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users } from "lucide-react";
+import { Users, MoreHorizontal, Link as LinkIcon } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 // This type should match the return type of getEntities
 // We can infer it or define it manually matching the DB schema
@@ -58,6 +67,38 @@ export const columns: ColumnDef<Entity>[] = [
     //   accessorKey: "email",
     //   header: "Email",
     // },
+    {
+        id: "actions",
+        enableHiding: false,
+        cell: ({ row }) => {
+            const entity = row.original;
+
+            const handleCopyLink = () => {
+                const url = `${window.location.origin}/portal/${entity.id}`;
+                navigator.clipboard.writeText(url);
+                toast.success("Enlace copiado al portapapeles");
+            };
+
+            return (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Abrir menú</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleCopyLink}>
+                            <LinkIcon className="mr-2 h-4 w-4" />
+                            Copiar Enlace del Portal
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            );
+        },
+    },
 ];
 
 interface DataTableProps<TData, TValue> {

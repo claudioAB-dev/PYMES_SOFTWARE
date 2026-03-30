@@ -2,9 +2,10 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/db'
-import { memberships, users } from '@/db/schema'
+import { memberships, users, organizations } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { stripe } from '@/lib/stripe'
 
 export async function getUserProfile() {
     const supabase = await createClient()
@@ -92,5 +93,47 @@ export async function updatePassword(password: string) {
     } catch (error) {
         console.error('Error updating password:', error)
         return { error: 'Error al actualizar la contraseña' }
+    }
+}
+
+export async function createCustomerPortalSession(orgId: string) {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+        return { error: 'No autorizado' }
+    }
+
+    try {
+        // Confirm user belongs to this organization
+        const userMembership = await db.query.memberships.findFirst({
+            where: (m, { and, eq }) => and(
+                eq(m.userId, user.id),
+                eq(m.organizationId, orgId)
+            )
+        })
+
+        if (!userMembership) {
+            return { error: 'No tienes permisos para esta organización' }
+        }
+
+        // Fetch organization to get stripe_customer_id
+        const org = await db.query.organizations.findFirst({
+            where: eq(organizations.id, orgId)
+        })
+
+        if (!org || !org.stripeCustomerId) {
+            return { error: 'No se encontró una suscripción activa para esta organización' }
+        }
+
+        const session = await stripe.billingPortal.sessions.create({
+            customer: org.stripeCustomerId,
+            return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/profile`,
+        })
+
+        return { success: true, url: session.url }
+    } catch (error) {
+        console.error('Error creating portal session:', error)
+        return { error: 'Error al generar la sesión del portal de facturación' }
     }
 }
