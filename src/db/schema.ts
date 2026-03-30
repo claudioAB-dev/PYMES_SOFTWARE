@@ -21,6 +21,7 @@ export const cfdiTypeEnum = pgEnum('cfdi_type', ['I', 'E', 'T', 'N', 'P']);
 export const itemTypeEnum = pgEnum('item_type', ['finished_good', 'raw_material', 'sub_assembly', 'service']);
 export const productionStatusEnum = pgEnum('production_status', ['draft', 'in_progress', 'completed', 'cancelled']);
 export const invoiceStatusEnum = pgEnum('invoice_status', ['pending', 'attached', 'not_required']);
+export const batchQualityStatusEnum = pgEnum('batch_quality_status', ['QUARANTINE', 'AVAILABLE', 'REJECTED']);
 
 // --- TABLES ---
 
@@ -128,6 +129,7 @@ export const products = pgTable("products", {
     price: decimal("price", { precision: 12, scale: 2 }).default('0').notNull(),
     stock: decimal("stock", { precision: 12, scale: 2 }).default('0').notNull(), // Using decimal for stock to allow fractional units if needed, though zod uses int validation I'll stick to decimal for flexibility or integer if strictly requested. User said "stock: z.number().int()". I'll use integer in DB for strictness if requested, but decimal is safer for general ERPs. User requirement: "stock: z.number().int()". I'll use integer in DB.
     archived: boolean("archived").default(false).notNull(),
+    isManufacturable: boolean("is_manufacturable").default(false).notNull(),
     cost: decimal("cost", { precision: 12, scale: 2 }).default('0').notNull(),
     satClaveProdServId: text("sat_clave_prod_serv_id").references(() => satClavesProdServ.id),
     satClaveUnidadId: text("sat_clave_unidad_id").references(() => satClavesUnidad.id),
@@ -362,6 +364,7 @@ export const productionOrders = pgTable("production_orders", {
     id: uuid("id").defaultRandom().primaryKey(),
     organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
     productId: uuid("product_id").references(() => products.id).notNull(),
+    parentOrderId: uuid("parent_order_id").references((): any => productionOrders.id), // Recursive link
     status: productionStatusEnum("status").default('draft').notNull(),
     targetQuantity: decimal("target_quantity", { precision: 12, scale: 2 }).notNull(),
     startDate: timestamp("start_date").notNull(),
@@ -393,6 +396,8 @@ export const productBatches = pgTable("product_batches", {
     initialQuantity: decimal("initial_quantity", { precision: 12, scale: 2 }).notNull(),
     currentQuantity: decimal("current_quantity", { precision: 12, scale: 2 }).notNull(),
     productionOrderId: uuid("production_order_id").references(() => productionOrders.id),
+    status: batchQualityStatusEnum("status").default('QUARANTINE').notNull(),
+    qualityNotes: text("quality_notes"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -583,6 +588,8 @@ export const entitiesRelations = relations(entities, ({ one }) => ({
 export const productionOrdersRelations = relations(productionOrders, ({ one, many }) => ({
     organization: one(organizations, { fields: [productionOrders.organizationId], references: [organizations.id] }),
     product: one(products, { fields: [productionOrders.productId], references: [products.id] }),
+    parentOrder: one(productionOrders, { fields: [productionOrders.parentOrderId], references: [productionOrders.id], relationName: "childOrders" }),
+    childOrders: many(productionOrders, { relationName: "childOrders" }),
     materials: many(productionOrderMaterials),
     batches: many(productBatches),
 }));

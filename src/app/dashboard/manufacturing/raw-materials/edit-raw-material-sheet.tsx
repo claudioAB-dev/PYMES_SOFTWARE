@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { productSchema, ProductInput } from "@/lib/validators/products";
-import { createRawMaterial } from "./actions";
+import { updateRawMaterial } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -14,7 +14,6 @@ import {
     SheetDescription,
     SheetHeader,
     SheetTitle,
-    SheetTrigger,
     SheetFooter,
     SheetClose,
 } from "@/components/ui/sheet";
@@ -33,6 +32,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+
+// Omit AsyncCombobox redefinition using it as is
+// ...
 
 function AsyncCombobox({
     value,
@@ -133,54 +135,77 @@ function AsyncCombobox({
     );
 }
 
-export function CreateRawMaterialSheet() {
-    const [open, setOpen] = useState(false);
+interface EditRawMaterialSheetProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    material: any; // Ideally you define the raw material type but any for now
+}
+
+export function EditRawMaterialSheet({ open, onOpenChange, material }: EditRawMaterialSheetProps) {
     const [isPending, startTransition] = useTransition();
 
     const form = useForm<ProductInput>({
         resolver: zodResolver(productSchema),
         defaultValues: {
-            name: "",
-            sku: "",
-            price: "0", // Defaulting to 0 since raw materials usually don't have sell price
-            cost: 0,
+            name: material?.name || "",
+            sku: material?.sku || "",
+            price: material?.price ? material.price.toString() : "0",
+            cost: material?.cost ? Number(material.cost) : 0,
             priceIncludesVat: false,
-            stock: 0,
-            type: "PRODUCT", // Always product
-            itemType: "raw_material",
-            esObjetoImpuesto: "02",
+            stock: material?.stock ? Number(material.stock) : 0,
+            type: material?.type || "PRODUCT",
+            itemType: material?.itemType || "raw_material",
+            esObjetoImpuesto: material?.esObjetoImpuesto || "02",
+            satClaveProdServId: material?.satClaveProdServId || undefined,
+            satClaveUnidadId: material?.satClaveUnidadId || undefined,
+            isManufacturable: material?.isManufacturable || false,
         },
     });
 
+    useEffect(() => {
+        if (open && material) {
+            form.reset({
+                name: material.name || "",
+                sku: material.sku || "",
+                price: material.price ? material.price.toString() : "0",
+                cost: material.cost ? Number(material.cost) : 0,
+                priceIncludesVat: false,
+                stock: material.stock ? Number(material.stock) : 0,
+                type: material.type || "PRODUCT",
+                itemType: material.itemType || "raw_material",
+                esObjetoImpuesto: material.esObjetoImpuesto || "02",
+                satClaveProdServId: material.satClaveProdServId || undefined,
+                satClaveUnidadId: material.satClaveUnidadId || undefined,
+                isManufacturable: material.isManufacturable || false,
+            });
+        }
+    }, [open, material, form]);
+
     function onSubmit(data: ProductInput) {
         startTransition(async () => {
-            const result = await createRawMaterial({ ...data, itemType: "raw_material" });
+            const result = await updateRawMaterial(material.id, { ...data, itemType: material.itemType || "raw_material" });
 
             if (result.error) {
                 toast.error(result.error);
             } else {
-                setOpen(false);
-                form.reset();
-                toast.success("Materia prima creada exitosamente");
+                onOpenChange(false);
+                toast.success("Materia prima actualizada exitosamente");
             }
         });
     }
 
     return (
-        <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-                <Button>Nueva Materia Prima</Button>
-            </SheetTrigger>
+        <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent className="sm:max-w-xl flex flex-col h-full w-full">
                 <SheetHeader>
-                    <SheetTitle>Crear Materia Prima</SheetTitle>
+                    <SheetTitle>Editar Materia Prima</SheetTitle>
                     <SheetDescription>
-                        Agrega un nuevo insumo a tu catálogo de manufactura.
+                        Actualiza la información de tu insumo o sub-ensamble.
                     </SheetDescription>
                 </SheetHeader>
                 <div className="flex-1 overflow-y-auto px-1 py-4 max-h-[calc(100vh-12rem)]">
                     <Form {...form}>
-                        <form id="create-rm-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <form id="edit-rm-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
@@ -287,7 +312,7 @@ export function CreateRawMaterialSheet() {
                                             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                                                 <div className="space-y-0.5">
                                                     <FormLabel>
-                                                        ¿El costo/precio incluye IVA (16%)?
+                                                        Â¿El costo/precio incluye IVA (16%)?
                                                     </FormLabel>
                                                 </div>
                                                 <FormControl>
@@ -312,7 +337,7 @@ export function CreateRawMaterialSheet() {
                                                         Es manufacturable
                                                     </FormLabel>
                                                     <div className="text-[0.8rem] text-muted-foreground">
-                                                        Permite asignar una receta (BOM) y generar órdenes de producción para este insumo.
+                                                        Permite asignar una receta (BOM) y generar Ã³rdenes de producciÃ³n para este insumo.
                                                     </div>
                                                 </div>
                                                 <FormControl>
@@ -352,9 +377,9 @@ export function CreateRawMaterialSheet() {
                                                         </FormControl>
                                                         <SelectContent>
                                                             <SelectItem value="01">01 - No objeto de impuesto</SelectItem>
-                                                            <SelectItem value="02">02 - Sí objeto de impuesto</SelectItem>
-                                                            <SelectItem value="03">03 - Sí objeto del impuesto y no obligado al desglose</SelectItem>
-                                                            <SelectItem value="04">04 - Sí objeto del impuesto y no causa impuesto</SelectItem>
+                                                            <SelectItem value="02">02 - SÃ­ objeto de impuesto</SelectItem>
+                                                            <SelectItem value="03">03 - SÃ­ objeto del impuesto y no obligado al desglose</SelectItem>
+                                                            <SelectItem value="04">04 - SÃ­ objeto del impuesto y no causa impuesto</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />
@@ -375,7 +400,7 @@ export function CreateRawMaterialSheet() {
                                                     endpoint="/api/sat/catalogs/prod-serv"
                                                     placeholder="Selecciona una clave..."
                                                     emptyText="No se encontraron claves."
-                                                    searchPlaceholder="Buscar por clave o descripción..."
+                                                    searchPlaceholder="Buscar por clave o descripciÃ³n..."
                                                     idKey="id"
                                                     labelKey="descripcion"
                                                 />
@@ -417,9 +442,9 @@ export function CreateRawMaterialSheet() {
                             Cancelar
                         </Button>
                     </SheetClose>
-                    <Button type="submit" form="create-rm-form" disabled={isPending}>
+                    <Button type="submit" form="edit-rm-form" disabled={isPending}>
                         {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {isPending ? "Guardando..." : "Guardar Materia Prima"}
+                        {isPending ? "Guardando..." : "Actualizar Materia Prima"}
                     </Button>
                 </div>
             </SheetContent>

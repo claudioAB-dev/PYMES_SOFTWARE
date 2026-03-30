@@ -42,7 +42,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { completeProductionOrderAction } from "@/app/actions/production-orders";
-import { Loader2, CheckCircle2, AlertCircle, CalendarIcon, Package } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, CalendarIcon, Package, Beaker } from "lucide-react";
 import { CancelOrderButton } from "@/components/manufacturing/CancelOrderButton";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -55,11 +55,8 @@ const materialSchema = z.object({
     actualQuantity: z.string().min(1, "Requerido"),
 });
 
-const formSchema = z.object({
+const completeOrderSchema = z.object({
     materials: z.array(materialSchema),
-});
-
-const batchFormSchema = z.object({
     batchNumber: z.string().min(1, "El número de lote es requerido"),
     manufacturingDate: z.date({
         required_error: "La fecha de fabricación es requerida",
@@ -67,8 +64,7 @@ const batchFormSchema = z.object({
     expirationDate: z.date().optional().nullable(),
 });
 
-type FormValues = z.infer<typeof formSchema>;
-type BatchFormValues = z.infer<typeof batchFormSchema>;
+type CompleteOrderValues = z.infer<typeof completeOrderSchema>;
 
 export function OrderDetailsClient({ order }: { order: any }) {
     const isCompleted = order.status === 'completed' || order.status === 'cancelled';
@@ -76,24 +72,6 @@ export function OrderDetailsClient({ order }: { order: any }) {
     const [stockErrors, setStockErrors] = useState<any[] | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const router = useRouter();
-
-    const form = useForm<FormValues>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            materials: order.materials.map((m: any) => ({
-                materialId: m.materialId,
-                name: m.material?.name || "Desconocido",
-                uom: m.material?.uom || "",
-                plannedQuantity: m.plannedQuantity,
-                actualQuantity: m.actualQuantity || m.plannedQuantity,
-            })),
-        },
-    });
-
-    const { fields } = useFieldArray({
-        name: "materials",
-        control: form.control,
-    });
 
     // Helper to generate default batch number
     const generateDefaultBatchNumber = () => {
@@ -105,26 +83,35 @@ export function OrderDetailsClient({ order }: { order: any }) {
         return `LOTE-${yyyy}${mm}${dd}-${orderSlug}`;
     };
 
-    const batchForm = useForm<BatchFormValues>({
-        resolver: zodResolver(batchFormSchema),
+    const form = useForm<CompleteOrderValues>({
+        resolver: zodResolver(completeOrderSchema),
         defaultValues: {
+            materials: order.materials.map((m: any) => ({
+                materialId: m.materialId,
+                name: m.material?.name || "Desconocido",
+                uom: m.material?.uom || "",
+                plannedQuantity: m.plannedQuantity,
+                actualQuantity: m.actualQuantity || m.plannedQuantity,
+            })),
             batchNumber: generateDefaultBatchNumber(),
             manufacturingDate: new Date(),
             expirationDate: null,
         },
     });
 
-    function onOpenDialogClick() {
-        form.handleSubmit(() => {
-            // Material form is valid, open the batch dialog
-            setIsDialogOpen(true);
-        })();
+    const { fields } = useFieldArray({
+        name: "materials",
+        control: form.control,
+    });
+
+    function onOpenDialog() {
+        setStockErrors(null);
+        setIsDialogOpen(true);
     }
 
-    function onSubmitFinal(batchData: BatchFormValues) {
+    function onSubmitFinal(data: CompleteOrderValues) {
         setStockErrors(null);
         startTransition(async () => {
-            const data = form.getValues();
             const quantitiesToSubmit = data.materials.map(m => ({
                 materialId: m.materialId,
                 quantity: m.actualQuantity,
@@ -134,18 +121,17 @@ export function OrderDetailsClient({ order }: { order: any }) {
                 order.id,
                 quantitiesToSubmit,
                 {
-                    batchNumber: batchData.batchNumber,
-                    manufacturingDate: batchData.manufacturingDate,
-                    expirationDate: batchData.expirationDate ?? null
+                    batchNumber: data.batchNumber,
+                    manufacturingDate: data.manufacturingDate,
+                    expirationDate: data.expirationDate ?? null
                 }
             );
 
             if (result.success) {
-                toast.success(`Orden completada. Lote ${result.batchNumber} generado e ingresado al almacén.`);
+                toast.success(`Orden completada. Lote ${result.batchNumber} generado y enviado a Cuarentena.`);
                 setIsDialogOpen(false);
                 router.refresh();
             } else {
-                setIsDialogOpen(false);
                 if (result.errorType === 'INSUFFICIENT_STOCK' && result.details) {
                     toast.error(result.message);
                     setStockErrors(result.details);
@@ -205,7 +191,7 @@ export function OrderDetailsClient({ order }: { order: any }) {
             )}
 
             <div className="flex items-center justify-between">
-                <h3 className="text-xl font-semibold">Consumo de Insumos</h3>
+                <h3 className="text-xl font-semibold">Detalle de Materiales</h3>
                 {!isCompleted && (
                     <div className="flex items-center gap-2">
                         {(order.status === 'draft' || order.status === 'in_progress') && (
@@ -213,7 +199,7 @@ export function OrderDetailsClient({ order }: { order: any }) {
                         )}
                         <Button
                             type="button"
-                            onClick={onOpenDialogClick}
+                            onClick={onOpenDialog}
                             disabled={isPending}
                             className="bg-green-600 hover:bg-green-700 text-white"
                         >
@@ -224,195 +210,251 @@ export function OrderDetailsClient({ order }: { order: any }) {
                 )}
             </div>
 
-            {stockErrors && stockErrors.length > 0 && (
-                <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>No se puede completar la orden: Inventario Insuficiente</AlertTitle>
-                    <AlertDescription className="mt-2 text-sm leading-relaxed">
-                        <ul className="list-disc list-inside space-y-1">
-                            {stockErrors.map((error, idx) => (
-                                <li key={idx}>
-                                    Faltan <span className="font-mono bg-destructive/20 rounded px-1">{Number(error.shortage).toFixed(2)}</span> de <strong>{error.materialName}</strong> / (Stock actual: <span className="font-mono text-muted-foreground">{Number(error.currentStock).toFixed(2)}</span>)
-                                </li>
-                            ))}
-                        </ul>
-                    </AlertDescription>
-                </Alert>
-            )}
-
             <div className="rounded-md border bg-card">
-                <Form {...form}>
-                    <form>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Insumo</TableHead>
-                                    <TableHead className="w-[150px]">Planeado</TableHead>
-                                    <TableHead className="w-[150px]">Real</TableHead>
-                                    <TableHead className="w-[100px]">Unidad</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {fields.map((field, index) => (
-                                    <TableRow key={field.id}>
-                                        <TableCell className="font-medium">
-                                            {field.name}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="text-muted-foreground">
-                                                {Number(field.plannedQuantity).toFixed(4)}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <FormField
-                                                control={form.control}
-                                                name={`materials.${index}.actualQuantity`}
-                                                render={({ field: inputField }) => (
-                                                    <FormItem>
-                                                        <FormControl>
-                                                            <Input
-                                                                type="number"
-                                                                step="0.0001"
-                                                                min="0"
-                                                                {...inputField}
-                                                                disabled={isCompleted || isPending}
-                                                                className={isCompleted ? "bg-muted font-medium border-none shadow-none" : ""}
-                                                                onChange={(e) => {
-                                                                    inputField.onChange(e);
-                                                                    setStockErrors(null);
-                                                                }}
-                                                            />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            {field.uom}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                                {fields.length === 0 && (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
-                                            No hay insumos requeridos.
-                                        </TableCell>
-                                    </TableRow>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Insumo</TableHead>
+                            <TableHead className="w-[150px]">Cant. Planeada (Teórica)</TableHead>
+                            {isCompleted && <TableHead className="w-[150px]">Cant. Real (Consumida)</TableHead>}
+                            <TableHead className="w-[100px]">Unidad</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {order.materials.map((m: any) => (
+                            <TableRow key={m.materialId}>
+                                <TableCell className="font-medium">
+                                    {m.material?.name || "Desconocido"}
+                                </TableCell>
+                                <TableCell>
+                                    <div className="text-muted-foreground">
+                                        {Number(m.plannedQuantity).toFixed(4)}
+                                    </div>
+                                </TableCell>
+                                {isCompleted && (
+                                    <TableCell>
+                                        <div className="font-semibold text-green-700 dark:text-green-400">
+                                            {Number(m.actualQuantity).toFixed(4)}
+                                        </div>
+                                    </TableCell>
                                 )}
-                            </TableBody>
-                        </Table>
-                    </form>
-                </Form>
+                                <TableCell>
+                                    {m.material?.uom}
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                        {order.materials.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={isCompleted ? 4 : 3} className="text-center py-6 text-muted-foreground">
+                                    No hay insumos requeridos.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
             </div>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Trazabilidad del Lote</DialogTitle>
+                        <DialogTitle>Completar Orden y Enviar a Cuarentena</DialogTitle>
                         <DialogDescription>
-                            Ingrese los datos de procedencia del lote generado por esta orden de producción.
+                            Verifica la cantidad real de insumos consumidos (mermas/ahorros) y define los datos del lote que pasará a Control de Calidad.
                         </DialogDescription>
                     </DialogHeader>
-                    <Form {...batchForm}>
-                        <form onSubmit={batchForm.handleSubmit(onSubmitFinal)} className="space-y-4">
-                            <FormField
-                                control={batchForm.control}
-                                name="batchNumber"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Número de Lote</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="LOTE-XXXX" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={batchForm.control}
-                                name="manufacturingDate"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel>Fecha de Fabricación</FormLabel>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
+
+                    {stockErrors && stockErrors.length > 0 && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Inventario Insuficiente</AlertTitle>
+                            <AlertDescription className="mt-2 text-sm leading-relaxed">
+                                <ul className="list-disc list-inside space-y-1">
+                                    {stockErrors.map((error, idx) => (
+                                        <li key={idx}>
+                                            Faltan <span className="font-mono bg-destructive/20 rounded px-1">{Number(error.shortage).toFixed(2)}</span> de <strong>{error.materialName}</strong> / (Stock actual: <span className="font-mono text-muted-foreground">{Number(error.currentStock).toFixed(2)}</span>)
+                                        </li>
+                                    ))}
+                                </ul>
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmitFinal)} className="space-y-6">
+                            
+                            <div className="space-y-4">
+                                <h4 className="flex items-center gap-2 font-medium text-sm text-foreground border-b pb-2">
+                                    <Beaker className="h-4 w-4 text-green-600" />
+                                    1. Consumo de Materiales (Teórico vs Real)
+                                </h4>
+                                <div className="rounded-md border bg-card">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Insumo</TableHead>
+                                                <TableHead>Teórica</TableHead>
+                                                <TableHead className="w-[140px]">Real Consumida</TableHead>
+                                                <TableHead>Unidad</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {fields.map((field, index) => (
+                                                <TableRow key={field.id}>
+                                                    <TableCell className="text-sm font-medium">
+                                                        {field.name}
+                                                    </TableCell>
+                                                    <TableCell className="text-sm text-muted-foreground">
+                                                        {Number(field.plannedQuantity).toFixed(4)}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`materials.${index}.actualQuantity`}
+                                                            render={({ field: inputField }) => (
+                                                                <FormItem>
+                                                                    <FormControl>
+                                                                        <Input
+                                                                            type="number"
+                                                                            step="0.0001"
+                                                                            min="0"
+                                                                            {...inputField}
+                                                                            disabled={isPending}
+                                                                            onChange={(e) => {
+                                                                                inputField.onChange(e);
+                                                                                setStockErrors(null);
+                                                                            }}
+                                                                        />
+                                                                    </FormControl>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="text-sm text-muted-foreground">
+                                                        {field.uom}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {fields.length === 0 && (
+                                                <TableRow>
+                                                    <TableCell colSpan={4} className="text-center py-4 text-xs text-muted-foreground">
+                                                        Sin insumos
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h4 className="flex items-center gap-2 font-medium text-sm text-foreground border-b pb-2">
+                                    <Package className="h-4 w-4 text-blue-600" />
+                                    2. Datos del Lote Resultante
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="batchNumber"
+                                        render={({ field }) => (
+                                            <FormItem className="col-span-1 md:col-span-2">
+                                                <FormLabel>Número de Lote</FormLabel>
                                                 <FormControl>
-                                                    <Button
-                                                        variant={"outline"}
-                                                        className={cn(
-                                                            "w-full pl-3 text-left font-normal",
-                                                            !field.value && "text-muted-foreground"
-                                                        )}
-                                                    >
-                                                        {field.value ? (
-                                                            format(field.value, "PPP", { locale: es })
-                                                        ) : (
-                                                            <span>Elegir fecha...</span>
-                                                        )}
-                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                    </Button>
+                                                    <Input placeholder="LOTE-XXXX" {...field} disabled={isPending} />
                                                 </FormControl>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={field.value}
-                                                    onSelect={field.onChange}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={batchForm.control}
-                                name="expirationDate"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel>Fecha de Caducidad (Opcional)</FormLabel>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <FormControl>
-                                                    <Button
-                                                        variant={"outline"}
-                                                        className={cn(
-                                                            "w-full pl-3 text-left font-normal",
-                                                            !field.value && "text-muted-foreground"
-                                                        )}
-                                                    >
-                                                        {field.value ? (
-                                                            format(field.value, "PPP", { locale: es })
-                                                        ) : (
-                                                            <span>No aplica</span>
-                                                        )}
-                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                    </Button>
-                                                </FormControl>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={field.value || undefined}
-                                                    onSelect={field.onChange}
-                                                    disabled={(date) => date < new Date()}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <DialogFooter className="pt-4">
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="manufacturingDate"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                                <FormLabel>Fecha de Fabricación</FormLabel>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <FormControl>
+                                                            <Button
+                                                                variant={"outline"}
+                                                                disabled={isPending}
+                                                                className={cn(
+                                                                    "w-full pl-3 text-left font-normal",
+                                                                    !field.value && "text-muted-foreground"
+                                                                )}
+                                                            >
+                                                                {field.value ? (
+                                                                    format(field.value, "PPP", { locale: es })
+                                                                ) : (
+                                                                    <span>Elegir fecha...</span>
+                                                                )}
+                                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                            </Button>
+                                                        </FormControl>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                        <Calendar
+                                                            mode="single"
+                                                            selected={field.value}
+                                                            onSelect={field.onChange}
+                                                            initialFocus
+                                                        />
+                                                    </PopoverContent>
+                                                </Popover>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="expirationDate"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                                <FormLabel>Fecha de Caducidad (Opcional)</FormLabel>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <FormControl>
+                                                            <Button
+                                                                variant={"outline"}
+                                                                disabled={isPending}
+                                                                className={cn(
+                                                                    "w-full pl-3 text-left font-normal",
+                                                                    !field.value && "text-muted-foreground"
+                                                                )}
+                                                            >
+                                                                {field.value ? (
+                                                                    format(field.value, "PPP", { locale: es })
+                                                                ) : (
+                                                                    <span>No aplica</span>
+                                                                )}
+                                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                            </Button>
+                                                        </FormControl>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                        <Calendar
+                                                            mode="single"
+                                                            selected={field.value || undefined}
+                                                            onSelect={field.onChange}
+                                                            disabled={(date) => date < new Date()}
+                                                            initialFocus
+                                                        />
+                                                    </PopoverContent>
+                                                </Popover>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            </div>
+
+                            <DialogFooter className="pt-6">
                                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isPending}>
                                     Cancelar
                                 </Button>
-                                <Button type="submit" disabled={isPending}>
+                                <Button type="submit" disabled={isPending} className="bg-green-600 hover:bg-green-700 text-white">
                                     {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                    Completar y Guardar
+                                    Confirmar Consumos y Guardar Lote
                                 </Button>
                             </DialogFooter>
                         </form>

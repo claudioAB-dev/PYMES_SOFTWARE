@@ -23,6 +23,7 @@ export const productSchema = z.object({
     satClaveProdServId: z.string().length(8, "Debe tener exactamente 8 caracteres").optional(),
     satClaveUnidadId: z.string().min(1).max(3, "Máximo 3 caracteres").optional(),
     esObjetoImpuesto: z.string().optional(),
+    isManufacturable: z.boolean().optional(),
 });
 
 export type ProductInput = z.infer<typeof productSchema>;

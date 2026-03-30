@@ -1,0 +1,53 @@
+No config path provided, using default 'drizzle.config.ts'
+Reading config file 'C:\pymes-software\drizzle.config.ts'
+[dotenv@17.3.1] injecting env (0) from .env.local -- tip: 🛡️ auth for agents: https://vestauth.com
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+Using 'postgres' driver for database querying
+[⣷] applying migrations...[2K[1G[⣯] applying migrations...[2K[1G[⣟] applying migrations...[2K[1G[⡿] applying migrations...[2K[1G[⢿] applying migrations...[2K[1G[⣻] applying migrations...{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '42P06',
+  message: 'schema "drizzle" already exists, skipping',
+  file: 'schemacmds.c',
+  line: '132',
+  routine: 'CreateSchemaCommand'
+}
+[2K[1G[⣽] applying migrations...{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '42P07',
+  message: 'relation "__drizzle_migrations" already exists, skipping',
+  file: 'parse_utilcmd.c',
+  line: '207',
+  routine: 'transformCreateStmt'
+}
+[2K[1G[⣷] applying migrations...[2K[1G[⣯] applying migrations...[2K[1G[⣟] applying migrations...[2K[1G[⡿] applying migrations...[2K[1G[⢿] applying migrations...DrizzleQueryError: Failed query: 
+ALTER TABLE "products" ADD COLUMN "is_manufacturable" boolean DEFAULT false NOT NULL;
+params: 
+    at PostgresJsPreparedQuery.queryWithCache (C:\pymes-software\node_modules\.pnpm\drizzle-orm@0.45.1_@opentel_59a49d8474003173f2804fcded5d819e\node_modules\src\pg-core\session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\pymes-software\node_modules\.pnpm\drizzle-orm@0.45.1_@opentel_59a49d8474003173f2804fcded5d819e\node_modules\src\pg-core\dialect.ts:102:7)
+    at async scope (file:///C:/pymes-software/node_modules/.pnpm/postgres@3.4.8/node_modules/postgres/src/index.js:260:18)
+    at async Function.begin (file:///C:/pymes-software/node_modules/.pnpm/postgres@3.4.8/node_modules/postgres/src/index.js:243:14)
+    at async PgDialect.migrate (C:\pymes-software\node_modules\.pnpm\drizzle-orm@0.45.1_@opentel_59a49d8474003173f2804fcded5d819e\node_modules\src\pg-core\dialect.ts:95:3)
+    at async migrate (C:\pymes-software\node_modules\.pnpm\drizzle-orm@0.45.1_@opentel_59a49d8474003173f2804fcded5d819e\node_modules\src\postgres-js\migrator.ts:10:2) {
+  query: '\n' +
+    'ALTER TABLE "products" ADD COLUMN "is_manufacturable" boolean DEFAULT false NOT NULL;',
+  params: [],
+  cause: PostgresError: column "is_manufacturable" of relation "products" already exists
+      at ErrorResponse (file:///C:/pymes-software/node_modules/.pnpm/postgres@3.4.8/node_modules/postgres/src/connection.js:815:30)
+      at handle (file:///C:/pymes-software/node_modules/.pnpm/postgres@3.4.8/node_modules/postgres/src/connection.js:489:6)
+      at Socket.data (file:///C:/pymes-software/node_modules/.pnpm/postgres@3.4.8/node_modules/postgres/src/connection.js:324:9)
+      at Socket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Readable.push (node:internal/streams/readable:392:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+    severity_local: 'ERROR',
+    severity: 'ERROR',
+    code: '42701',
+    file: 'tablecmds.c',
+    line: '7478',
+    routine: 'check_for_column_name_collision'
+  }
+}

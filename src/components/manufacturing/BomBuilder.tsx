@@ -238,7 +238,7 @@ export function BomBuilder({ parent_product_id, materials }: BomBuilderProps) {
                                                                                         <div className="flex items-center gap-2">
                                                                                             <span>{item.name}</span>
                                                                                             {item.itemType === 'sub_assembly' && (
-                                                                                                <Badge variant="secondary" className="text-[10px] h-4 py-0 px-1">Sub-ensamble</Badge>
+                                                                                                <Badge variant="secondary" className="text-[10px] h-4 py-0 px-1">Contiene BOM interno</Badge>
                                                                                             )}
                                                                                             {item.itemType === 'raw_material' && (
                                                                                                 <Badge variant="outline" className="text-[10px] h-4 py-0 px-1 border-slate-300">Materia Prima</Badge>

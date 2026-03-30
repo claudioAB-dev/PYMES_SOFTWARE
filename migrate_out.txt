@@ -1,0 +1,25 @@
+[dotenv@17.3.1] injecting env (5) from .env.local -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.3.1] injecting env (5) from .env -- tip: 🤖 agentic secret storage: https://dotenvx.com/as2
+Adding enum...
+Migration failed: DrizzleQueryError: Failed query: DO $$ BEGIN
+            CREATE TYPE "batch_quality_status" AS ENUM ('QUARANTINE', 'AVAILABLE', 'REJECTED');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+params: 
+    at PostgresJsPreparedQuery.queryWithCache (C:\pymes-software\node_modules\.pnpm\drizzle-orm@0.45.1_@opentel_59a49d8474003173f2804fcded5d819e\node_modules\src\pg-core\session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async migrate (C:\pymes-software\scripts\run-missing-migration.ts:10:9) {
+  query: 'DO $$ BEGIN\n' +
+    `            CREATE TYPE "batch_quality_status" AS ENUM ('QUARANTINE', 'AVAILABLE', 'REJECTED');\n` +
+    '        EXCEPTION\n' +
+    '            WHEN duplicate_object THEN null;\n' +
+    '        END $$;',
+  params: [],
+  cause: AggregateError [ECONNREFUSED]: 
+      at internalConnectMultiple (node:net:1139:18)
+      at afterConnectMultiple (node:net:1714:7) {
+    code: 'ECONNREFUSED',
+    [errors]: [ [Error], [Error] ]
+  }
+}

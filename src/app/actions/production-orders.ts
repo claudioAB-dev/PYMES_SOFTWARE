@@ -33,60 +33,82 @@ async function getOrganizationId() {
 }
 
 export async function createProductionOrderAction(productId: string, targetQuantity: number, inputStartDate?: string) {
-
     try {
         const { organizationId } = await getOrganizationId();
-
-        // 1. Fetch the BOM for the given product
-        const bom = await db.query.bomLines.findMany({
-            where: eq(bomLines.parentProductId, productId),
-        });
-
-        if (!bom || bom.length === 0) {
-            throw new Error("El producto seleccionado no tiene una Lista de Materiales (BOM) configurada.");
-        }
+        const startDate = inputStartDate ? new Date(inputStartDate) : new Date();
 
         // 2. Transacción para crear la orden y sus detalles
         const newOrderId = await db.transaction(async (tx: any) => {
-            // a. Insert the header
-            const [newOrder] = await tx.insert(productionOrders).values({
-                organizationId: organizationId,
-                productId: productId,
-                targetQuantity: targetQuantity.toString(), // Store as string for decimal
-                status: 'draft',
-                startDate: inputStartDate ? new Date(inputStartDate) : new Date(),
-            }).returning({ id: productionOrders.id });
 
-            // b. Calculate and prepare the materials insertion
-            const materialsToInsert = bom.map((line: any) => {
-                // Formula: (Cantidad en BOM * targetQuantity) * (1 + (scrap_factor / 100))
-                const bomQuantity = new Decimal(line.quantity as string);
-                const targetQtyDec = new Decimal(targetQuantity);
-                const scrapFactorDec = new Decimal(line.scrapFactor as string).dividedBy(100);
+            // Función recursiva para iterar en BOMs multinivel
+            async function buildOrderRecursive(prodId: string, qty: number, parentId: string | null = null): Promise<string> {
+                // Fetch the BOM for the given product, including product to check itemType
+                const bom = await tx.query.bomLines.findMany({
+                    where: eq(bomLines.parentProductId, prodId),
+                    with: {
+                        componentProduct: true
+                    }
+                });
 
-                const plannedQtyDec = bomQuantity.mul(targetQtyDec).mul(new Decimal(1).plus(scrapFactorDec));
+                if (!bom || bom.length === 0) {
+                    if (parentId === null) {
+                        throw new Error("El producto principal no tiene una Lista de Materiales (BOM) configurada.");
+                    } else {
+                        // Si es un sub-ensamble pero no tiene BOM, podríamos fallar.
+                        throw new Error("Un sub-ensamble requerido no tiene Lista de Materiales configurada.");
+                    }
+                }
 
-                // Redondear a un número razonable de decimales (ej. 4)
-                const finalQuantity = plannedQtyDec.toDecimalPlaces(4).toString();
+                // Insert the header
+                const [newOrder] = await tx.insert(productionOrders).values({
+                    organizationId: organizationId,
+                    productId: prodId,
+                    parentOrderId: parentId, // Link self-referential
+                    targetQuantity: qty.toString(), // Store as string for decimal
+                    status: 'draft',
+                    startDate: startDate,
+                }).returning({ id: productionOrders.id });
 
-                return {
-                    productionOrderId: newOrder.id,
-                    materialId: line.componentProductId,
-                    plannedQuantity: finalQuantity,
-                    actualQuantity: finalQuantity, // Default to planned
-                    unitCost: line.unitCost as string, // Snapshot of the current cost from BOM 
-                };
-            });
+                // Calculate and prepare the materials insertion
+                const materialsToInsert: any[] = [];
 
-            // c. Insert the materials
-            if (materialsToInsert.length > 0) {
-                await tx.insert(productionOrderMaterials).values(materialsToInsert);
+                for (const line of bom) {
+                    // Formula: (Cantidad en BOM * targetQuantity) * (1 + (scrap_factor / 100))
+                    const bomQuantity = new Decimal(line.quantity as string);
+                    const targetQtyDec = new Decimal(qty);
+                    const scrapFactorDec = new Decimal(line.scrapFactor as string).dividedBy(100);
+
+                    const plannedQtyDec = bomQuantity.mul(targetQtyDec).mul(new Decimal(1).plus(scrapFactorDec));
+
+                    // Redondear a un número razonable de decimales (ej. 4)
+                    const finalQuantity = plannedQtyDec.toDecimalPlaces(4).toString();
+
+                    materialsToInsert.push({
+                        productionOrderId: newOrder.id,
+                        materialId: line.componentProductId,
+                        plannedQuantity: finalQuantity,
+                        actualQuantity: finalQuantity, // Default to planned
+                        unitCost: line.unitCost as string, // Snapshot of the current cost from BOM
+                    });
+
+                    // Si el componente es a su vez un sub-ensamble, explota el BOM y crea orden hija
+                    if (line.componentProduct?.itemType === 'sub_assembly') {
+                        await buildOrderRecursive(line.componentProductId, plannedQtyDec.toNumber(), newOrder.id);
+                    }
+                }
+
+                // Insert the materials for the current order
+                if (materialsToInsert.length > 0) {
+                    await tx.insert(productionOrderMaterials).values(materialsToInsert);
+                }
+
+                return newOrder.id;
             }
 
-            return newOrder.id;
+            return await buildOrderRecursive(productId, targetQuantity, null);
         });
 
-        revalidatePath('/dashboard/manufacturing/orders'); // Example path
+        revalidatePath('/dashboard/manufacturing/orders');
         return { success: true, orderId: newOrderId };
 
     } catch (error: any) {

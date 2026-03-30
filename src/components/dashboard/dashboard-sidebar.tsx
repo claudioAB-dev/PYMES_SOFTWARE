@@ -139,6 +139,13 @@ export function DashboardSidebar({ className, userPermissions, currentPlan = "fr
             permissionId: "view:manufacturing",
         },
         {
+            label: "Control de Calidad",
+            icon: FileCheck,
+            href: "/dashboard/manufacturing/quality-control",
+            color: "text-amber-500",
+            permissionId: "view:manufacturing",
+        },
+        {
             label: "Órdenes de Producción",
             icon: Factory,
             href: "/dashboard/manufacturing/orders",
@@ -174,7 +181,7 @@ export function DashboardSidebar({ className, userPermissions, currentPlan = "fr
             <div className="px-3 py-2 flex-1" suppressHydrationWarning>
                 <Link href="/dashboard" className="flex items-center pl-3 mb-14" suppressHydrationWarning>
                     <h1 className="text-2xl font-bold">
-                        Pymes Soft
+                        Axioma ERP
                     </h1>
                 </Link>
 

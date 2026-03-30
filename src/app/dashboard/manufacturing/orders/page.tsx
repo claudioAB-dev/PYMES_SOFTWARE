@@ -67,7 +67,11 @@ async function getManufacturableProducts() {
                 eq(productsSchema.archived, false),
                 or(
                     eq(productsSchema.itemType, 'finished_good'),
-                    eq(productsSchema.itemType, 'sub_assembly')
+                    eq(productsSchema.itemType, 'sub_assembly'),
+                    and(
+                        eq(productsSchema.itemType, 'raw_material'),
+                        eq(productsSchema.isManufacturable, true)
+                    )
                 )
             ),
             orderBy: [desc(productsSchema.name)],

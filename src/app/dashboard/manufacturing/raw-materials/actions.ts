@@ -139,6 +139,7 @@ export async function createRawMaterial(input: ProductInput) {
             cost: validatedFields.data.cost.toString(),
             stock: validatedFields.data.stock?.toString() || "0",
             uom: "PZA", // Default
+            isManufacturable: validatedFields.data.isManufacturable || false,
         });
 
         revalidatePath("/dashboard/manufacturing/raw-materials");
@@ -149,5 +150,42 @@ export async function createRawMaterial(input: ProductInput) {
             return { error: "El SKU ya existe en esta organización" };
         }
         return { error: "Error al crear la materia prima" };
+    }
+}
+
+export async function updateRawMaterial(id: string, input: ProductInput) {
+    try {
+        const { organizationId } = await getOrganizationId();
+
+        const validatedFields = productSchema.safeParse(input);
+
+        if (!validatedFields.success) {
+            return { error: "Datos inválidos" };
+        }
+
+        const IVA_RATE = 1.16;
+        const parsedPrice = parseFloat(validatedFields.data.price);
+        const finalPrice = validatedFields.data.priceIncludesVat
+            ? (parsedPrice / IVA_RATE)
+            : parsedPrice;
+
+        await db.update(products).set({
+            name: validatedFields.data.name,
+            sku: validatedFields.data.sku || null,
+            type: validatedFields.data.type,
+            price: finalPrice.toFixed(6),
+            cost: validatedFields.data.cost.toString(),
+            stock: validatedFields.data.stock?.toString() || "0",
+            isManufacturable: validatedFields.data.isManufacturable || false,
+        }).where(and(eq(products.id, id), eq(products.organizationId, organizationId)));
+
+        revalidatePath("/dashboard/manufacturing/raw-materials");
+        return { success: true };
+    } catch (error: any) {
+        console.error(error);
+        if (error.code === '23505') {
+            return { error: "El SKU ya existe en esta organización" };
+        }
+        return { error: "Error al actualizar la materia prima" };
     }
 }

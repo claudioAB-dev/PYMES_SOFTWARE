@@ -1,10 +1,68 @@
 "use server";
 
 import { db } from "@/db";
-import { bomLines } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { bomLines, products, memberships } from "@/db/schema";
+import { eq, and, inArray, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { BomFormValues } from "@/lib/validators/manufacturing";
+import { createClient } from "@/lib/supabase/server";
+
+async function getOrganizationId() {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    const userMemberships = await db.query.memberships.findMany({
+        where: eq(memberships.userId, user.id),
+    });
+
+    if (userMemberships.length === 0) throw new Error("No organization found");
+
+    return {
+        organizationId: userMemberships[0].organizationId,
+        role: userMemberships[0].role,
+        user
+    };
+}
+
+export async function getProductsForBom() {
+    try {
+        const { organizationId } = await getOrganizationId();
+
+        const data = await db.query.products.findMany({
+            where: and(
+                eq(products.organizationId, organizationId),
+                eq(products.archived, false),
+                inArray(products.itemType, ['finished_good', 'raw_material', 'sub_assembly'])
+            ),
+            orderBy: [desc(products.createdAt)],
+            columns: {
+                id: true,
+                name: true,
+                sku: true,
+                itemType: true,
+                uom: true,
+                cost: true,
+            }
+        });
+
+        // Format to match BomWrapper expected Product interface
+        return data.map(p => ({
+            id: p.id,
+            name: p.name,
+            sku: p.sku,
+            itemType: p.itemType,
+            uom: p.uom,
+            cost: p.cost,
+        }));
+    } catch (error) {
+        console.error("Error fetching products for BOM:", error);
+        return [];
+    }
+}
 
 export async function saveBomAction(data: BomFormValues) {
     try {

@@ -1,17 +1,12 @@
-import { getProducts } from "@/app/dashboard/products/actions";
+import { getProductsForBom } from "@/app/dashboard/manufacturing/bom/actions";
 import { getRawMaterials } from "@/app/dashboard/manufacturing/raw-materials/actions";
 import { BomWrapper } from "./bom-wrapper";
 
 export const dynamic = 'force-dynamic';
 
 export default async function BomPage() {
-    const products = await getProducts();
+    const parentProducts = await getProductsForBom();
     const materials = await getRawMaterials();
-
-    const validParentProducts = [
-        ...products,
-        ...materials.filter(m => m.itemType === 'sub_assembly')
-    ];
 
     return (
         <div className="container mx-auto py-6 space-y-6">
@@ -22,7 +17,7 @@ export default async function BomPage() {
                 </p>
             </div>
 
-            <BomWrapper products={validParentProducts} materials={materials} />
+            <BomWrapper products={parentProducts} materials={materials} />
         </div>
     );
 }

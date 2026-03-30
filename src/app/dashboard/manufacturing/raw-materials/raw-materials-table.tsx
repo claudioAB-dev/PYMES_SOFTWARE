@@ -30,6 +30,7 @@ interface RawMaterialWithSupply {
     stockInTransit?: number
     nextDeliveryDate?: Date | null
     reservedStock?: number
+    isManufacturable?: boolean | null
 }
 
 export const columns: ColumnDef<RawMaterialWithSupply>[] = [
@@ -44,6 +45,11 @@ export const columns: ColumnDef<RawMaterialWithSupply>[] = [
                             {row.original.name}
                         </Link>
                     </span>
+                    {row.original.isManufacturable && (
+                        <Badge variant="outline" className="ml-2 bg-indigo-50 text-indigo-700 border-indigo-200">
+                            Manufacturable
+                        </Badge>
+                    )}
                     <br />
                     <span className="text-xs text-muted-foreground">SKU: {row.original.sku || "N/A"} - {uom}</span>
                 </div>
@@ -131,7 +137,13 @@ export const columns: ColumnDef<RawMaterialWithSupply>[] = [
         id: "actions",
         cell: ({ row }) => {
             return (
-                <div className="text-right">
+                <div className="text-right flex items-center justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => {
+                        const event = new CustomEvent('edit-raw-material', { detail: row.original });
+                        window.dispatchEvent(event);
+                    }}>
+                        Editar
+                    </Button>
                     <Link href={`/dashboard/purchases/new?itemId=${row.original.id}`}>
                         <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800">
                             Solicitar Compra <ExternalLink className="ml-2 h-4 w-4" />
@@ -148,6 +160,9 @@ interface DataTableProps<TData, TValue> {
     data: TData[]
 }
 
+import { useState, useEffect } from "react"
+import { EditRawMaterialSheet } from "./edit-raw-material-sheet"
+
 export function RawMaterialsTable<TData, TValue>({
     columns,
     data,
@@ -158,8 +173,25 @@ export function RawMaterialsTable<TData, TValue>({
         getCoreRowModel: getCoreRowModel(),
     })
 
+    const [editOpen, setEditOpen] = useState(false)
+    const [editingMaterial, setEditingMaterial] = useState<any>(null)
+
+    useEffect(() => {
+        const handleEdit = (e: any) => {
+            setEditingMaterial(e.detail)
+            setEditOpen(true)
+        }
+        window.addEventListener('edit-raw-material', handleEdit)
+        return () => window.removeEventListener('edit-raw-material', handleEdit)
+    }, [])
+
     return (
         <div className="rounded-md border">
+            <EditRawMaterialSheet 
+                open={editOpen} 
+                onOpenChange={setEditOpen} 
+                material={editingMaterial} 
+            />
             <Table>
                 <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (

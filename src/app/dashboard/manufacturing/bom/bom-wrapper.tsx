@@ -18,17 +18,18 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { BomBuilder } from "@/components/manufacturing/BomBuilder";
+import { Badge } from "@/components/ui/badge";
 
 interface Product {
     id: string;
     name: string;
     sku: string | null;
+    itemType?: "finished_good" | "raw_material" | "sub_assembly" | "service" | null;
 }
 
 interface MaterialProduct extends Product {
     uom: string | null;
     cost: string;
-    itemType?: "finished_good" | "raw_material" | "sub_assembly" | "service" | null;
 }
 
 interface BomWrapperProps {
@@ -84,8 +85,19 @@ export function BomWrapper({ products, materials }: BomWrapperProps) {
                                                 )}
                                             />
                                             <div className="flex flex-col">
-                                                <span className="font-medium text-slate-900 dark:text-slate-100">{product.name}</span>
-                                                {product.sku && <span className="text-xs text-slate-500 font-mono">SKU: {product.sku}</span>}
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium text-slate-900 dark:text-slate-100">{product.name}</span>
+                                                    {product.itemType === 'finished_good' && (
+                                                        <Badge className="text-[10px] h-4 py-0 px-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800" variant="outline">Producto Terminado</Badge>
+                                                    )}
+                                                    {product.itemType === 'raw_material' && (
+                                                        <Badge className="text-[10px] h-4 py-0 px-1 border-slate-300" variant="outline">Materia Prima</Badge>
+                                                    )}
+                                                    {product.itemType === 'sub_assembly' && (
+                                                        <Badge className="text-[10px] h-4 py-0 px-1" variant="secondary">Sub-ensamble</Badge>
+                                                    )}
+                                                </div>
+                                                {product.sku && <span className="text-xs text-slate-500 font-mono mt-0.5">SKU: {product.sku}</span>}
                                             </div>
                                         </CommandItem>
                                     ))}
